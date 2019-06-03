@@ -25,6 +25,8 @@ from opensfm import (
     types,
 )
 from opensfm.large.metadataset import MetaDataSet
+import vmem
+from opensfm.large.lru_cache import lru_cache
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -205,7 +207,7 @@ def add_camera_constraints_hard(
                 )
 
 
-@lru_cache(25)
+@lru_cache(use_memory_up_to=vmem.virtual_memory().available * 0.9)
 def load_reconstruction(
     path: str, index: int
 ) -> Tuple[str, Tuple[types.Reconstruction, pymap.TracksManager]]:
