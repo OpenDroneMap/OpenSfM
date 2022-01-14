@@ -23,6 +23,7 @@ class Report:
         self.mapi_dark_grey = [0, 0, 0]
 
         self.pdf = FPDF("P", "mm", "A4")
+        self.pdf.add_font('DejaVu', '', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', uni=True)
         self.pdf.add_page()
 
         self.title_size = 20
@@ -48,7 +49,7 @@ class Report:
             fwb.write(bytestring)
 
     def _make_table(self, columns_names, rows, row_header=False):
-        self.pdf.set_font("Helvetica", "", self.h3)
+        self.pdf.set_font("DejaVu", "", self.h3)
         self.pdf.set_line_width(0.3)
 
         columns_sizes = [int(self.total_size / len(rows[0]))] * len(rows[0])
@@ -102,14 +103,14 @@ class Report:
             return io.json_load(fin)
 
     def _make_section(self, title):
-        self.pdf.set_font("Helvetica", "B", self.h1)
+        self.pdf.set_font("DejaVu", "", self.h1)
         self.pdf.set_text_color(*self.mapi_dark_grey)
         self.pdf.cell(0, self.margin, title, align="L")
         self.pdf.set_xy(self.margin, self.pdf.get_y() + 1.5 * self.margin)
 
     def _make_subsection(self, title):
         self.pdf.set_xy(self.margin, self.pdf.get_y() - 0.5 * self.margin)
-        self.pdf.set_font("Helvetica", "B", self.h2)
+        self.pdf.set_font("DejaVu", "", self.h2)
         self.pdf.set_text_color(*self.mapi_dark_grey)
         self.pdf.cell(0, self.margin, title, align="L")
         self.pdf.set_xy(self.margin, self.pdf.get_y() + self.margin)
@@ -140,9 +141,9 @@ class Report:
 
     def make_title(self):
         # title
-        self.pdf.set_font("Helvetica", "B", self.title_size)
+        self.pdf.set_font("DejaVu", "", self.title_size)
         self.pdf.set_text_color(*self.mapi_light_green)
-        self.pdf.cell(0, self.margin, "ODM Quality Report", align="C")
+        self.pdf.cell(0, self.margin, "DroNet Kalite Raporu", align="C")
         self.pdf.set_xy(self.margin, self.title_size)
 
         # version number
@@ -157,30 +158,30 @@ class Report:
         # indicate we don't know the version
         version = "unknown" if version == "" else version
 
-        self.pdf.set_font("Helvetica", "", self.small_text)
+        self.pdf.set_font("DejaVu", "", self.small_text)
         self.pdf.set_text_color(*self.mapi_dark_grey)
         self.pdf.cell(
-            0, self.margin, f"Processed with ODM version {version}", align="R"
+            0, self.margin, f"DroNet 1.2.0 ile işlendi", align="R"
         )
         self.pdf.set_xy(self.margin, self.pdf.get_y() + 2 * self.margin)
 
     def make_dataset_summary(self):
-        self._make_section("Dataset Summary")
+        self._make_section("Veri seti özeti")
 
         rows = [
             #["Dataset", self.dataset_name],
-            ["Date", self.stats["processing_statistics"]["date"]],
+            ["Tarih", self.stats["processing_statistics"]["date"]],
             [
-                "Area Covered",
+                "Kapsanan Alan",
                 f"{self.stats['processing_statistics']['area']/1e6:.6f} km²",
             ],
             [
-                "Processing Time",
+                "İşlem Süresi",
                 #f"{self.stats['processing_statistics']['steps_times']['Total Time']:.2f} seconds",
                 self.stats['odm_processing_statistics']['total_time_human'],
             ],
-            ["Capture Start", self.stats["processing_statistics"]["start_date"]],
-            ["Capture End", self.stats["processing_statistics"]["end_date"]],
+            ["Fotoğraf Çekim Başlangıcı ", self.stats["processing_statistics"]["start_date"]],
+            ["Fotoğraf Çekim Sonu", self.stats["processing_statistics"]["end_date"]],
         ]
         self._make_table(None, rows, True)
         self.pdf.set_xy(self.margin, self.pdf.get_y() + self.margin)
@@ -192,7 +193,7 @@ class Report:
         )
 
     def make_processing_summary(self):
-        self._make_section("Processing Summary")
+        self._make_section("İşlem Özeti")
 
         rec_shots, init_shots = (
             self.stats["reconstruction_statistics"]["reconstructed_shots_count"],
@@ -212,50 +213,50 @@ class Report:
         ratio_shots = rec_shots / init_shots * 100 if init_shots > 0 else -1
         rows = [
             [
-                "Reconstructed Images",
-                f"{rec_shots} over {init_shots} shots ({ratio_shots:.1f}%)",
+                "Kullanılan Fotoğraflar",
+                f"{rec_shots} üzerinden {init_shots} fotoğraf ({ratio_shots:.1f}%)",
             ],
             [
-                "Reconstructed Points (Sparse)",
-                f"{rec_points} over {init_points} points ({rec_points/init_points*100:.1f}%)",
+                "Oluşturulan Noktalar (seyrek)",
+                f"{rec_points} üzerinden {init_points} nokta ({rec_points/init_points*100:.1f}%)",
             ],
             # [
             #     "Reconstructed Components",
             #     f"{self.stats['reconstruction_statistics']['components']} component",
             # ],
             [
-                "Detected Features",
-                f"{self.stats['features_statistics']['detected_features']['median']:,} features",
+                "Bulunan Özellikler",
+                f"{self.stats['features_statistics']['detected_features']['median']:,} özellik",
             ],
             [
-                "Reconstructed Features",
-                f"{self.stats['features_statistics']['reconstructed_features']['median']:,} features",
+                "Oluşturulan Özellikler",
+                f"{self.stats['features_statistics']['reconstructed_features']['median']:,} özellik",
             ],
-            ["Geographic Reference", " and ".join(geo_string)],
+            ["Coğrafi Referans", " ve ".join(geo_string)],
         ]
 
         # Dense (if available)
         if self.stats.get('point_cloud_statistics'):
             if self.stats['point_cloud_statistics'].get('dense'):
                 rows.insert(2, [
-                    "Reconstructed Points (Dense)",
-                    f"{self.stats['point_cloud_statistics']['stats']['statistic'][0]['count']:,} points"
+                    "Oluşturulan Noktalar (Sık)",
+                    f"{self.stats['point_cloud_statistics']['stats']['statistic'][0]['count']:,} nokta"
                 ])
 
         # GSD (if available)
         if self.stats['odm_processing_statistics'].get('average_gsd'):
             rows.insert(3, [
-                "Average Ground Sampling Distance (GSD)",
+                "Ortalama Yer Örnekleme Mesafesi (GSD)",
                 f"{self.stats['odm_processing_statistics']['average_gsd']:.1f} cm"
             ])
 
-        row_gps_gcp = [" / ".join(geo_string) + " errors"]
+        row_gps_gcp = [" / ".join(geo_string) + " hata"]
         geo_errors = []
         if self.stats["reconstruction_statistics"]["has_gps"]:
             geo_errors.append(f"{self.stats['gps_errors']['average_error']:.2f}")
         if self._has_meaningful_gcp():
             geo_errors.append(f"{self.stats['gcp_errors']['average_error']:.2f}")
-        row_gps_gcp.append(" / ".join(geo_errors) + " meters")
+        row_gps_gcp.append(" / ".join(geo_errors) + " metre")
         rows.append(row_gps_gcp)
 
         self._make_table(None, rows, True)
@@ -302,17 +303,17 @@ class Report:
         self.pdf.set_xy(self.margin, self.pdf.get_y() + self.margin / 2)
 
     def make_gps_details(self):
-        self._make_section("GPS/GCP/3D Errors Details")
+        self._make_section("GPS/YKN/3D Hata Detayları")
 
         # GPS
         table_count = 0
         for error_type in ["gps", "gcp", "3d"]:
             rows = []
-            columns_names = [error_type.upper(), "Mean", "Sigma", "RMS Error"]
+            columns_names = [error_type.upper(), "Ortalama", "Sigma", "RMS Hata"]
             if "average_error" not in self.stats[error_type + "_errors"]:
                 continue
             for comp in ["x", "y", "z"]:
-                row = [comp.upper() + " Error (meters)"]
+                row = [comp.upper() + " Hata (Metre)"]
                 row.append(f"{self.stats[error_type + '_errors']['mean'][comp]:.3f}")
                 row.append(f"{self.stats[error_type +'_errors']['std'][comp]:.3f}")
                 row.append(f"{self.stats[error_type +'_errors']['error'][comp]:.3f}")
@@ -320,7 +321,7 @@ class Report:
 
             rows.append(
                 [
-                    "Total",
+                    "Toplam",
                     "",
                     "",
                     f"{self.stats[error_type +'_errors']['average_error']:.3f}",
@@ -341,11 +342,11 @@ class Report:
             rows = []
             if a_ce90 > 0 and a_le90 > 0:
                 rows += [[
-                    "Horizontal Accuracy CE90 (meters)",
+                    "Yatay Hassasiyet CE90 (metre)",
                     f"{a_ce90:.3f}",
                     f"{r_ce90:.3f}" if r_ce90 > 0 else "-",
                 ],[
-                    "Vertical Accuracy LE90 (meters)",
+                    "Dikey Hassasiyet LE90 (metre)",
                     f"{a_le90:.3f}",
                     f"{r_le90:.3f}" if r_le90 > 0 else "-",
                 ]]
@@ -353,7 +354,7 @@ class Report:
             if rows:
                 if table_count > 2:
                     self.add_page_break()
-                self._make_table(["", "Absolute", "Relative"], rows, True)
+                self._make_table(["", "Mutlak", "Bağıl"], rows, True)
                 self.pdf.set_xy(self.margin, self.pdf.get_y() + self.margin / 2)
 
         # rows = []
@@ -379,7 +380,7 @@ class Report:
         self.pdf.set_xy(self.margin, self.pdf.get_y() + self.margin / 2)
 
     def make_features_details(self):
-        self._make_section("Features Details")
+        self._make_section("Özellik Detayları")
 
         heatmap_height = 60
         heatmaps = [
@@ -391,7 +392,7 @@ class Report:
         if len(heatmaps) > 1:
             logger.warning("Please implement multi-model display")
 
-        columns_names = ["", "Min.", "Max.", "Mean", "Median"]
+        columns_names = ["", "Min.", "Maks.", "Ortalama", "Medyan"]
         rows = []
         for comp in ["detected_features", "reconstructed_features"]:
             row = [comp.replace("_", " ").replace("features", "").capitalize()]
@@ -405,11 +406,11 @@ class Report:
         self.pdf.set_xy(self.margin, self.pdf.get_y() + self.margin)
 
     def make_reconstruction_details(self):
-        self._make_section("Reconstruction Details")
+        self._make_section("Reconstruction Detayları")
 
         rows = [
             [
-                "Average Reprojection Error (normalized / pixels / angular)",
+                "Ortalama Projeksiyon Hatası (normalleştirilmiş / piksel / açısal)",
                 (
                     f"{self.stats['reconstruction_statistics']['reprojection_error_normalized']:.2f} / "
                     f"{self.stats['reconstruction_statistics']['reprojection_error_pixels']:.2f} / "
@@ -417,12 +418,12 @@ class Report:
                 ),
             ],
             [
-                "Average Track Length",
-                f"{self.stats['reconstruction_statistics']['average_track_length']:.2f} images",
+                "Ortalama Uçuş Mesafesi",
+                f"{self.stats['reconstruction_statistics']['average_track_length']:.2f} fotoğraf",
             ],
             [
-                "Average Track Length (> 2)",
-                f"{self.stats['reconstruction_statistics']['average_track_length_over_two']:.2f} images",
+                "Ortalama Uçuş Mesafesi (> 2)",
+                f"{self.stats['reconstruction_statistics']['average_track_length_over_two']:.2f} fotoğraf",
             ],
         ]
         self._make_table(None, rows, True)
@@ -441,7 +442,7 @@ class Report:
         self.pdf.set_xy(self.margin, self.pdf.get_y() + self.margin)
 
     def make_camera_models_details(self):
-        self._make_section("Camera Models Details")
+        self._make_section("Kamera Model Detayı")
 
         for camera, params in self.stats["camera_errors"].items():
             residual_grids = [
@@ -457,8 +458,8 @@ class Report:
             names = [""] + list(initial.keys())
 
             rows = []
-            rows.append(["Initial"] + [f"{x:.4f}" for x in initial.values()])
-            rows.append(["Optimized"] + [f"{x:.4f}" for x in optimized.values()])
+            rows.append(["Başlangıç"] + [f"{x:.4f}" for x in initial.values()])
+            rows.append(["Optimize"] + [f"{x:.4f}" for x in optimized.values()])
 
             self._make_subsection(camera)
             self._make_table(names, rows)
@@ -516,7 +517,7 @@ class Report:
             self.pdf.set_xy(self.margin, self.pdf.get_y() + self.margin / 2)
 
     def make_tracks_details(self):
-        self._make_section("Tracks Details")
+        self._make_section("Uçuş Detayları")
         matchgraph_height = 80
         matchgraph = [
             f
@@ -529,12 +530,12 @@ class Report:
 
         histogram = self.stats["reconstruction_statistics"]["histogram_track_length"]
         start_length, end_length = 2, 10
-        row_length = ["Length"]
+        row_length = ["Uzunluk"]
         for length, _ in sorted(histogram.items(), key=lambda x: int(x[0])):
             if int(length) < start_length or int(length) > end_length:
                 continue
             row_length.append(length)
-        row_count = ["Count"]
+        row_count = ["Adet"]
         for length, count in sorted(histogram.items(), key=lambda x: int(x[0])):
             if int(length) < start_length or int(length) > end_length:
                 continue
@@ -548,7 +549,7 @@ class Report:
         self.pdf.add_page("P")
 
     def make_survey_data(self):
-        self._make_section("Survey Data")
+        self._make_section("Ölçüm Verisi")
 
         self._make_centered_image(
             os.path.join(self.output_path, "overlap.png"), 90
@@ -572,20 +573,20 @@ class Report:
         count = 0
 
         if os.path.isfile(ortho) or os.path.isfile(dsm):
-            self._make_section("Previews")
+            self._make_section("Raster Önizlemeler")
             
             if os.path.isfile(ortho):
                 self._make_centered_image(
                     os.path.join(self.output_path, ortho), 110
                 )
-                self._add_image_label("Orthophoto")
+                self._add_image_label("Ortofoto")
                 count += 1
 
             if os.path.isfile(dsm) and self.stats.get('dsm_statistics'):
                 self._make_centered_image(
                     os.path.join(self.output_path, dsm), 110
                 )
-                self._add_image_label("Digital Surface Model")
+                self._add_image_label("Dijital Yüzey Modeli")
 
                 self._make_centered_image(
                     os.path.join(self.output_path, "dsm_gradient.png"), 4
@@ -604,7 +605,7 @@ class Report:
                 self._make_centered_image(
                     os.path.join(self.output_path, dtm), 110
                 )
-                self._add_image_label("Digital Terrain Model")
+                self._add_image_label("Dijital Arazi Modeli")
 
                 self._make_centered_image(
                     os.path.join(self.output_path, "dsm_gradient.png"), 4
