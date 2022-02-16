@@ -188,7 +188,7 @@ def read_images(
     expected: int,
     force: bool,
 ) -> None:
-    full_queue_timeout = 600
+    full_queue_timeout = 3600
     for image in images:
         logger.info(
             f"Reading data for image {image} (queue-size={queue.qsize()})")
