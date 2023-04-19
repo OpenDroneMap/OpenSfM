@@ -29,7 +29,7 @@ py::tuple akaze(foundation::pyarray_uint8 image, AKAZEOptions options) {
   cv::Mat desc;
   evolution.Compute_Descriptors(kpts, desc);
 
-  evolution.Show_Computation_Times();
+  // evolution.Show_Computation_Times();
 
   // Convert to numpy.
   cv::Mat keys(kpts.size(), 4, CV_32F);
