@@ -365,6 +365,8 @@ def extract_features_sift(
     sift_edge_threshold = config["sift_edge_threshold"]
     sift_peak_threshold = float(config["sift_peak_threshold"])
     sift_nfeatures = config["sift_nfeatures"]
+    if sift_nfeatures <= 0:
+        sift_nfeatures = int(features_count * 3 / 2)
     sift_octave_layers = config["sift_octave_layers"]
     sift_sigma = float(config["sift_sigma"])
     while True:
@@ -393,6 +395,8 @@ def extract_features_sift(
             detector = cv2.FeatureDetector_create("SIFT")
             descriptor = cv2.DescriptorExtractor_create("SIFT")
             detector.setDouble("edgeThreshold", sift_edge_threshold)
+            detector.setDouble("contrastThreshold", sift_peak_threshold)
+            detector.setDouble("nFeatures", sift_nfeatures)
 
         points = detector.detect(image)
         logger.debug("Found {0} points in {1}s".format(len(points), time.time() - t))

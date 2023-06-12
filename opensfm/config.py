@@ -53,7 +53,7 @@ class OpenSfMConfig:
     # Params for SIFT
     ##################################
     # Smaller value -> more features
-    sift_peak_threshold: float = 0.1
+    sift_peak_threshold: float = 0.2
     # See OpenCV doc
     sift_edge_threshold: int = 10
     # See OpenCV doc
