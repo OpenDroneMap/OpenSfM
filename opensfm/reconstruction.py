@@ -249,8 +249,7 @@ def two_view_reconstruction_plane_based(
             b1, b2, R.T, -R.T.dot(t), threshold)
         motion_inliers.append(inliers)
 
-    # pyre-fixme[6]: For 1st argument expected `Union[_SupportsArray[dtype[typing.Any...
-    best = np.argmax(map(len, motion_inliers))
+    best = np.argmax(list(map(len, motion_inliers)))
     R, t, n, d = motions[best]
     inliers = motion_inliers[best]
     return cv2.Rodrigues(R)[0].ravel(), t, inliers
