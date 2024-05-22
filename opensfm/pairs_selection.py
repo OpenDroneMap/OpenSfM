@@ -94,7 +94,7 @@ def find_best_altitude(
 
     coeffs = np.polyfit(samples_x, samples_y, 2)
     extrema = -coeffs[1] / (2 * coeffs[0])
-    if extrema < 0:
+    if extrema < 430.5:
         logger.info(
             f"Altitude is negative ({extrema}) : viewing directions are probably divergent. Using default altitude of {DEFAULT_Z}"
         )
