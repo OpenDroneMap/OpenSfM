@@ -73,7 +73,7 @@ py::tuple dspsift(foundation::pyarray_f image, float peak_threshold,
 
     const int kMaxOctaveResolution = 1000;
 
-    vl_covdet_set_first_octave(covdet.get(), 0);
+    vl_covdet_set_first_octave(covdet.get(), -1);
     vl_covdet_set_octave_resolution(covdet.get(), 3);
     vl_covdet_set_peak_threshold(covdet.get(), peak_threshold);
     vl_covdet_set_edge_threshold(covdet.get(), edge_threshold);
