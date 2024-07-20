@@ -1,3 +1,12 @@
 [submodule "opensfm/src/third_party/pybind11"]
 	path = opensfm/src/third_party/pybind11
 	url = https://github.com/pybind/pybind11.git
+[submodule "submodules/OpenSfM"]
+	path = submodules/OpenSfM
+	url = https://github.com/mapillary/OpenSfM.git
+[submodule "submodules/opencv"]
+	path = submodules/opencv
+	url = https://github.com/opencv/opencv.git
+[submodule "submodules/ceres-solver"]
+	path = submodules/ceres-solver
+	url = https://github.com/ceres-solver/ceres-solver.git
