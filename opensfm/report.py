@@ -151,7 +151,7 @@ class Report:
         # title
         self.pdf.set_font("Helvetica", "B", self.title_size)
         self.pdf.set_text_color(*self.mapi_light_green)
-        self.pdf.cell(0, self.margin, "Reporte de Qualidade da Geonex", align="C")
+        self.pdf.cell(0, self.margin, "Reportes da Geonex", align="C")
         self.pdf.set_xy(self.margin, self.title_size)
 
         # version number
@@ -169,7 +169,7 @@ class Report:
         self.pdf.set_font("Helvetica", "", self.small_text)
         self.pdf.set_text_color(*self.mapi_dark_grey)
         self.pdf.cell(
-            0, self.margin, f"Processed with Geonex version {version}", align="R"
+            0, self.margin, f"Processed with ODM version {version}", align="R"
         )
         self.pdf.set_xy(self.margin, self.pdf.get_y() + 2 * self.margin)
 
@@ -276,7 +276,7 @@ class Report:
             geo_errors.append(f"{(self.stats['align']['coarse']['rmse_3d'] + self.stats['align']['fine']['rmse_3d']):.2f}")
         
         if len(geo_errors) > 0:
-            row_gps_gcp.append(" / ".join(geo_errors) + " Metros")
+            row_gps_gcp.append(" / ".join(geo_errors) + " meters")
             rows.append(row_gps_gcp)
 
         self._make_table(None, rows, True)
