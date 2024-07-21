@@ -151,7 +151,7 @@ class Report:
         # title
         self.pdf.set_font("Helvetica", "B", self.title_size)
         self.pdf.set_text_color(*self.mapi_light_green)
-        self.pdf.cell(0, self.margin, "ODM Quality Report", align="C")
+        self.pdf.cell(0, self.margin, "Reportes da Geonex", align="C")
         self.pdf.set_xy(self.margin, self.title_size)
 
         # version number

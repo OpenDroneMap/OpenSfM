@@ -1206,8 +1206,11 @@ def imread(
     if ext.lower() == ".tiff" or ext.lower() == ".tif":
         return imread_rasterio(path, grayscale, unchanged, anydepth)
     else:
-        with open(path, "rb") as fb:
-            return imread_from_fileobject(fb, grayscale, unchanged, anydepth)
+        try:
+            with open(path, "rb") as fb:
+                return imread_from_fileobject(fb, grayscale, unchanged, anydepth)
+        except IOError:
+            raise IOError("Unable to load image {}".format(path))
 
 
 def imread_from_fileobject(
