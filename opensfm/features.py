@@ -656,6 +656,8 @@ def extract_features(
 
     xs = points[:, 0].round().astype(int)
     ys = points[:, 1].round().astype(int)
+    xs = np.clip(xs, 0, image.shape[1] - 1)
+    ys = np.clip(ys, 0, image.shape[0] - 1)
     colors = image[ys, xs]
     if image.shape[2] == 1:
         colors = np.repeat(colors, 3).reshape((-1, 3))
