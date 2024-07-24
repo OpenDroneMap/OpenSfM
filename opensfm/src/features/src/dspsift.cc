@@ -8,6 +8,7 @@ https://github.com/colmap/colmap */
 #include <iostream>
 #include <vector>
 #include <memory>
+#include <algorithm>
 #include <Eigen/Core>
 
 extern "C" {
@@ -47,8 +48,15 @@ namespace features {
 
 py::tuple dspsift(foundation::pyarray_f image, float peak_threshold,
                 float edge_threshold, int target_num_features, 
-                bool feature_root, bool domain_size_pooling, bool estimate_affine_shape) {
+                bool feature_root, bool domain_size_pooling, bool estimate_affine_shape, int border_size) {
   if (!image.size()) {
+    return py::none();
+  }
+
+  int width = image.shape(1);
+  int height = image.shape(0);
+
+  if (border_size*2 >= width || border_size*2 >= height) {
     return py::none();
   }
 
@@ -103,7 +111,13 @@ py::tuple dspsift(foundation::pyarray_f image, float peak_threshold,
     }
 
     VlCovDetFeature* features = vl_covdet_get_features(covdet.get());
+
+    VlCovDetFeature* middle = std::partition(features, features + num_features, [border_size, width, height](const VlCovDetFeature& feature) {
+      return feature.frame.x >= border_size && feature.frame.x < width - border_size &&
+             feature.frame.y >= border_size && feature.frame.y < height - border_size;
+    });
     
+    num_features = middle - features;
 
     // Sort features according to detected octave and scale.
     std::sort(

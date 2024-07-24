@@ -62,7 +62,8 @@ PYBIND11_MODULE(pyfeatures, m) {
         py::arg("target_num_features") = 0,
         py::arg("feature_root") = true,
         py::arg("domain_size_pooling") = true,
-        py::arg("estimate_affine_shape") = true);
+        py::arg("estimate_affine_shape") = true,
+        py::arg("border_size") = 5);
 
   m.def("match_using_words", features::match_using_words);
   m.def("compute_vlad_descriptor", features::compute_vlad_descriptor,
