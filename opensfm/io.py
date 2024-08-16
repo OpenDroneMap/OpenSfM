@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import shutil
+import math
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Union, Dict, Any, Iterable, List, IO, Tuple, TextIO, Optional
@@ -848,7 +849,7 @@ def _read_gcp_list_lines(
             point = points[key]
         else:
             # Convert 3D coordinates
-            if np.isnan(alt):
+            if math.isnan(alt):
                 alt = 0
                 has_altitude = False
             else:
