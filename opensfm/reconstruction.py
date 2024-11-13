@@ -1446,6 +1446,32 @@ class ShouldRetriangulate:
     def done(self) -> None:
         self.num_points_last = len(self.reconstruction.points)
 
+def detect_gcp_collinear(reconstruction: types.Reconstruction, gcp: List[pymap.GroundControlPoint], epsilon_abs = 1, epsilon_ratio = 0.05) -> bool:
+    """
+    Determine if the gcp points are collinear based on PCA analysis.
+    There are two criteria to determine if the points are collinear:
+    1. The first singular value is small, less than `epsilon_abs`. This is not collinear, but means the points are very close to each other, which is also no good for alignment)
+    2. The ratio of the 2nd singular value to the 1st singular value is small, less than `epsilon_ratio`. This suggests the points are collinear. The smaller the ratio, the more collinear the points are. 
+    """
+    if len(gcp) <= 2:
+        return True
+    X = []
+    # Convert the gcp points to ENU coordinates
+    for point in gcp:
+        point_enu = np.array(
+            reconstruction.reference.to_topocentric(*point.lla_vec)
+        )
+        if not point.has_altitude:
+            point_enu[2] = 0.0
+        X.append(point_enu)
+    # Center the points
+    X = np.array(X)
+    X = X - np.average(X, axis=0)
+    # Perform PCA
+    _, s, _ = np.linalg.svd(X)
+    ratio = s[1]/s[0]
+    is_line = s[0] < epsilon_abs or ratio < epsilon_ratio
+    return is_line
 
 def grow_reconstruction(
     data: DataSetBase,
@@ -1594,6 +1620,8 @@ def triangulation_reconstruction(
     gcp = data.load_ground_control_points()
 
     reconstruction = helpers.reconstruction_from_metadata(data, images)
+    if gcp and detect_gcp_collinear(reconstruction, gcp):
+        logger.warning("GCP points are likely collinear. The reconstruction orientation may be inaccurate.")
 
     config = data.config
     config_override = config.copy()
@@ -1676,6 +1704,8 @@ def incremental_reconstruction(
 
             if reconstruction:
                 remaining_images -= set(reconstruction.shots)
+                if gcp and detect_gcp_collinear(reconstruction, gcp):
+                    logger.warning("GCP points are likely collinear. The reconstruction orientation may be inaccurate.")
                 reconstruction, rec_report["grow"] = grow_reconstruction(
                     data,
                     tracks_manager,
