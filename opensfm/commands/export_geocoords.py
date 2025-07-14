@@ -18,7 +18,8 @@ class Command(command.CommandBase):
             args.reconstruction,
             args.dense,
             args.output,
-            (args.offset_x, args.offset_y)
+            (args.offset_x, args.offset_y),
+            args.mode
         )
 
     def add_arguments_impl(self, parser: argparse.ArgumentParser) -> None:
@@ -56,4 +57,10 @@ class Command(command.CommandBase):
         parser.add_argument(
             "--offset-y", type=float, help="Value to add to the final translation Y axis", default=0.0
         )
-        
+        parser.add_argument(
+            "--mode",
+            help="Georeferencing method",
+            type=str,
+            choices=["affine", "projected"],
+            default="affine",
+        )
