@@ -41,7 +41,6 @@ target_link_libraries(pymap
     geometry
     foundation
     bundle
-    pybind11
 )
 
 if (OPENSFM_BUILD_TESTS)
