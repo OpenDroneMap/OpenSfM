@@ -18,6 +18,7 @@ target_link_libraries(foundation
 )
 target_include_directories(foundation
   PUBLIC
+    ${PYBIND11_INCLUDE_DIR}
     ${PYTHON_INCLUDE_DIRS}
     ${CMAKE_SOURCE_DIR}
     ${OpenMP_CXX_INCLUDE_DIR}
