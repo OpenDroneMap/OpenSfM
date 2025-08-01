@@ -355,6 +355,8 @@ class DataSet(DataSetBase):
             modules_map = {
                 "numpy.core.multiarray._reconstruct": np.core.multiarray,
                 "numpy.core.multiarray.scalar": np.core.multiarray,
+                "numpy._core.multiarray._reconstruct": np.core.multiarray,
+                "numpy._core.multiarray.scalar": np.core.multiarray,
                 "numpy.ndarray": np,
                 "numpy.dtype": np,
             }
