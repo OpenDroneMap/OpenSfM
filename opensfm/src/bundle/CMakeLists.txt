@@ -29,7 +29,7 @@ endif()
 if (SUITESPARSE_FOUND)
     target_include_directories(bundle PRIVATE ${SUITESPARSE_INCLUDE_DIRS})
 endif()
-target_include_directories(bundle PRIVATE ${CMAKE_SOURCE_DIR} ${CERES_INCLUDE_DIR}/ceres/internal/miniglog)
+target_include_directories(bundle PRIVATE ${CMAKE_SOURCE_DIR})
 
 if (OPENSFM_BUILD_TESTS)
     set(BUNDLE_TEST_FILES

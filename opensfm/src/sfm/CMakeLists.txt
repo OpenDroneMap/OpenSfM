@@ -15,7 +15,7 @@ target_link_libraries(sfm
     map
     bundle
 )
-target_include_directories(sfm PUBLIC ${CMAKE_SOURCE_DIR} ${CERES_INCLUDE_DIR}/ceres/internal/miniglog)
+target_include_directories(sfm PUBLIC ${CMAKE_SOURCE_DIR})
 
 if (OPENSFM_BUILD_TESTS)
     set(SFM_TEST_FILES

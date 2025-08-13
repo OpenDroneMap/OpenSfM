@@ -24,7 +24,7 @@ target_link_libraries(robust
 target_include_directories(robust PUBLIC ${CMAKE_SOURCE_DIR})
 
 pybind11_add_module(pyrobust python/pybind.cc)
-target_include_directories(pyrobust PRIVATE ${GLOG_INCLUDE_DIR} ${CERES_INCLUDE_DIR}/ceres/internal/miniglog)
+target_include_directories(pyrobust PRIVATE ${GLOG_INCLUDE_DIR})
 target_link_libraries(pyrobust
   PRIVATE
     robust

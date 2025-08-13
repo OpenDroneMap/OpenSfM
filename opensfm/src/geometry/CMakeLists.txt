@@ -24,7 +24,7 @@ target_link_libraries(geometry
     foundation
     ${CERES_LIBRARIES}
     )
-target_include_directories(geometry PUBLIC ${CMAKE_SOURCE_DIR} ${CERES_INCLUDE_DIR}/ceres/internal/miniglog)
+target_include_directories(geometry PUBLIC ${CMAKE_SOURCE_DIR})
 
 if (OPENSFM_BUILD_TESTS)
     set(GEOMETRY_TEST_FILES
