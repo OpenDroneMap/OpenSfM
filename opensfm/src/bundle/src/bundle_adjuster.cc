@@ -570,8 +570,13 @@ void BundleAdjuster::Run() {
       problem.SetParameterBlockConstant(data.data());
     }else if (i.second.GetValue().GetProjectionType() == geometry::ProjectionType::BROWN){
         // Keep aspect ratio constant (BROWN only)
+#if CERES_VERSION_MAJOR > 1
         ceres::SubsetManifold *subset_parameterization = new ceres::SubsetManifold(data.size(), { 6 });
         problem.SetManifold(data.data(), subset_parameterization);
+#else
+        ceres::SubsetParameterization *subset_parameterization = new ceres::SubsetParameterization(data.size(), { 6 });
+        problem.SetParameterization(data.data(), subset_parameterization);
+#endif
     }
 
     // Add a barrier for constraining transition of dual to stay in [0, 1]
