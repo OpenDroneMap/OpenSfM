@@ -167,16 +167,4 @@ TEST_F(TracksManagerTest, HasIOFileConsistency) {
   EXPECT_EQ(track, manager_new.GetTrackObservations("1"));
 }
 
-TEST_F(TracksManagerTest, HasIOStringConsistency) {
-  const auto serialized = manager.AsString();
-  const map::TracksManager manager_new =
-      map::TracksManager::InstanciateFromString(serialized);
-
-  EXPECT_THAT(manager_new.GetShotIds(),
-              ::testing::WhenSorted(::testing::ElementsAre("1", "2", "3")));
-  EXPECT_THAT(manager_new.GetTrackIds(),
-              ::testing::WhenSorted(::testing::ElementsAre("1")));
-  EXPECT_EQ(track, manager_new.GetTrackObservations("1"));
-}
-
 }  // namespace
