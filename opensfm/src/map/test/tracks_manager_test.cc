@@ -172,9 +172,9 @@ TEST_F(TracksManagerTest, HasIOFileConsistency) {
   // track_from_file will not exactly match track (it is missing these fields).
   for(auto const& it : track) {
     EXPECT_EQ(it.second.point, track_from_file[it.first].point);
-    EXPECT_EQ(it.second.point, track_from_file[it.first].scale);
-    EXPECT_EQ(it.second.point, track_from_file[it.first].color);
-    EXPECT_EQ(it.second.point, track_from_file[it.first].feature_id);
+    EXPECT_EQ(it.second.scale, track_from_file[it.first].scale);
+    EXPECT_EQ(it.second.color, track_from_file[it.first].color);
+    EXPECT_EQ(it.second.feature_id, track_from_file[it.first].feature_id);
   }
 }
 
