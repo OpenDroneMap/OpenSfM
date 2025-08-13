@@ -6,6 +6,7 @@ import subprocess
 import sys
 
 import setuptools
+from sphinx.setup_command import BuildDoc
 from wheel.bdist_wheel import bdist_wheel
 
 VERSION = (0, 5, 2)
@@ -92,6 +93,17 @@ setuptools.setup(
             "data/bow/bow_hahog_root_uchar_64.npz",
         ]
     },
-
-    cmdclass={'bdist_wheel': platform_bdist_wheel},
+    cmdclass={
+        "bdist_wheel": platform_bdist_wheel,
+        "build_doc": BuildDoc,
+    },
+    command_options={
+        "build_doc": {
+            "project": ("setup.py", "OpenSfM"),
+            "version": ("setup.py", version_str(VERSION[:2])),
+            "release": ("setup.py", version_str(VERSION)),
+            "source_dir": ("setup.py", "doc/source"),
+            "build_dir": ("setup.py", "build/doc"),
+        }
+    },
 )
