@@ -570,7 +570,7 @@ void BundleAdjuster::Run() {
       problem.SetParameterBlockConstant(data.data());
     }else if (i.second.GetValue().GetProjectionType() == geometry::ProjectionType::BROWN){
         // Keep aspect ratio constant (BROWN only)
-#if CERES_VERSION_MAJOR > 1
+#if CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 2
         ceres::SubsetManifold *subset_parameterization = new ceres::SubsetManifold(data.size(), { 6 });
         problem.SetManifold(data.data(), subset_parameterization);
 #else
