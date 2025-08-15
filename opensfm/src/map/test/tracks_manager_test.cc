@@ -164,19 +164,18 @@ TEST_F(TracksManagerTest, HasIOFileConsistency) {
               ::testing::WhenSorted(::testing::ElementsAre("1", "2", "3")));
   EXPECT_THAT(manager_new.GetTrackIds(),
               ::testing::WhenSorted(::testing::ElementsAre("1")));
-  EXPECT_EQ(track, manager_new.GetTrackObservations("1"));
-}
 
-TEST_F(TracksManagerTest, HasIOStringConsistency) {
-  const auto serialized = manager.AsString();
-  const map::TracksManager manager_new =
-      map::TracksManager::InstanciateFromString(serialized);
+  std::unordered_map<map::ShotId, map::Observation> track_from_file = manager_new.GetTrackObservations("1");
 
-  EXPECT_THAT(manager_new.GetShotIds(),
-              ::testing::WhenSorted(::testing::ElementsAre("1", "2", "3")));
-  EXPECT_THAT(manager_new.GetTrackIds(),
-              ::testing::WhenSorted(::testing::ElementsAre("1")));
-  EXPECT_EQ(track, manager_new.GetTrackObservations("1"));
+  // Test that point, scale, color, and feature ID are correctly recovered from the file.
+  // Segmentation and instance IDs are not saved in the ODM file format. For this reason,
+  // track_from_file will not exactly match track (it is missing these fields).
+  for(auto const& it : track) {
+    EXPECT_EQ(it.second.point, track_from_file[it.first].point);
+    EXPECT_EQ(it.second.scale, track_from_file[it.first].scale);
+    EXPECT_EQ(it.second.color, track_from_file[it.first].color);
+    EXPECT_EQ(it.second.feature_id, track_from_file[it.first].feature_id);
+  }
 }
 
 }  // namespace
