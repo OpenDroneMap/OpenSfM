@@ -153,7 +153,7 @@ template <return_value_policy Policy = return_value_policy::reference_internal,
           typename ValueType = decltype(std::declval<Iterator>()),
           typename... Extra>
 iterator make_ptr_iterator(Iterator first, Sentinel last, Extra &&... extra) {
-  typedef detail::iterator_state<Iterator, Sentinel, false, Policy> state;
+  typedef detail::iterator_state<detail::iterator_access<Iterator>, Policy, Iterator, Sentinel, ValueType> state;
 
   if (!detail::get_type_info(typeid(state), false)) {
     class_<state>(handle(), "iterator", pybind11::module_local())
