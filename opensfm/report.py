@@ -185,12 +185,13 @@ class Report:
             ],
             [
                 "Processing Time",
-                #f"{self.stats['processing_statistics']['steps_times']['Total Time']:.2f} seconds",
-                self.stats['odm_processing_statistics']['total_time_human'],
+                f"{self.stats['processing_statistics']['steps_times']['Total Time']:.2f} seconds",
             ],
             ["Capture Start", self.stats["processing_statistics"]["start_date"]],
             ["Capture End", self.stats["processing_statistics"]["end_date"]],
         ]
+        if self.stats.get('odm_processing_statistics') and self.stats['odm_processing_statistics'].get('total_time_human'):
+            rows[2][1] = self.stats['odm_processing_statistics']['total_time_human'],
         self._make_table(None, rows, True)
         self.pdf.set_xy(self.margin, self.pdf.get_y() + self.margin)
 
@@ -258,7 +259,7 @@ class Report:
                 ])
 
         # GSD (if available)
-        if self.stats['odm_processing_statistics'].get('average_gsd'):
+        if self.stats.get('odm_processing_statistics') and self.stats['odm_processing_statistics'].get('average_gsd'):
             rows.insert(3, [
                 "Average Ground Sampling Distance (GSD)",
                 f"{self.stats['odm_processing_statistics']['average_gsd']:.1f} cm"
