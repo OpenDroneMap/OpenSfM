@@ -5,7 +5,7 @@ fpdf2==2.4.6
 joblib==0.14.1
 matplotlib
 networkx==2.5
-numpy
+numpy==1.21.6
 Pillow>=8.1.1
 pyproj>=1.9.5.1
 pytest==3.0.7
@@ -19,3 +19,6 @@ beautifulsoup4==4.9.1
 lxml==4.5.1
 wheel
 opencv-python==4.5.1.48 ; sys_platform == "win32"
+rasterio==1.3.11
+rawpy==0.21.0
+vmem==1.0.2

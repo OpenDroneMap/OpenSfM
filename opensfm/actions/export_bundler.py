@@ -60,11 +60,7 @@ def export_bundler(
             if shot_id in shots:
                 shot = shots[shot_id]
                 camera = shot.camera
-                if shot.camera.projection_type == "brown":
-                    # Will approximate Brown model, not optimal
-                    focal_normalized = camera.focal_x
-                else:
-                    focal_normalized = camera.focal
+                focal_normalized = camera.focal
                 scale = max(camera.width, camera.height)
                 focal = focal_normalized * scale
                 k1 = camera.k1

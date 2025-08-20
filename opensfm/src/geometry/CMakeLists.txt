@@ -50,6 +50,11 @@ target_link_libraries(pygeometry
     foundation
     pybind11
 )
+
+if (OPENSFM_BUILD_TESTS)
+target_link_libraries(pygeometry PRIVATE ${GLOG_LIBRARY})
+endif()
+
 set_target_properties(pygeometry PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${opensfm_SOURCE_DIR}/.."
 )
