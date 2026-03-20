@@ -76,6 +76,14 @@ def test_parse_projection() -> None:
     assert np.allclose((lat, lon), (plat, plon))
 
 
+def test_parse_projection_string() -> None:
+    assert io.read_gcp_projection("WGS84") is None
+    assert io.read_gcp_projection("WGS84 UTM 31N") == (
+        "+proj=utm +zone=31 +north +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
+    )
+    assert io.read_gcp_projection("EPSG:32631") == "EPSG:32631"
+
+
 def test_read_gcp_list() -> None:
     text = """WGS84
 13.400740745 52.519134104 12.0792090446 2335.0 1416.7 01.jpg

@@ -1,4 +1,5 @@
 import numpy as np
+import pyproj
 from opensfm import geo, pygeo
 
 
@@ -42,3 +43,20 @@ def test_ecef_lla_topocentric_consistency_pygeo() -> None:
 def test_eq_geo() -> None:
     assert geo.TopocentricConverter(40,30,0) == geo.TopocentricConverter(40,30,0)
     assert geo.TopocentricConverter(40,32,0) != geo.TopocentricConverter(40,30,0)
+
+
+def test_transform_to_proj_matches_pyproj() -> None:
+    lat, lon, alt = 41.38946, 2.18378, 12.3
+    reference = geo.TopocentricConverter(lat, lon, alt)
+    proj = "+proj=utm +zone=31 +north +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
+
+    transformer = geo.construct_proj_transformer(proj, inverse=True)
+    expected = pyproj.Transformer.from_proj(
+        pyproj.CRS.from_epsg(4326),
+        pyproj.CRS(proj),
+    ).transform(lat, lon)
+
+    easting, northing, altitude = geo.transform_to_proj([0, 0, 0], reference, transformer)
+
+    assert np.allclose((easting, northing), expected)
+    assert altitude == alt

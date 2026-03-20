@@ -1,6 +1,7 @@
 import numpy as np
+import pyproj
 from numpy import ndarray
-from typing import Tuple
+from typing import List, Tuple
 
 WGS84_a = 6378137.0
 WGS84_b = 6356752.314245
@@ -194,3 +195,91 @@ class TopocentricConverter(object):
 
     def __eq__(self, o):
         return np.allclose([self.lat, self.lon, self.alt], (o.lat, o.lon, o.alt))
+
+
+def construct_proj_transformer(
+    proj_str: str, inverse: bool = False
+) -> pyproj.Transformer:
+    """Construct a transformer between the given projection and WGS84."""
+    crs_4326 = pyproj.CRS.from_epsg(4326)
+    if inverse:
+        return pyproj.Transformer.from_proj(crs_4326, pyproj.CRS(proj_str))
+    return pyproj.Transformer.from_proj(pyproj.CRS(proj_str), crs_4326)
+
+
+def transform_to_proj(
+    point: List[float],
+    reference: TopocentricConverter,
+    projection: pyproj.Transformer,
+) -> List[float]:
+    """Transform a local topocentric point into the target projection."""
+    assert projection.source_crs.to_epsg() == 4326
+
+    lat, lon, altitude = reference.to_lla(point[0], point[1], point[2])
+    easting, northing = projection.transform(lat, lon)
+    return [easting, northing, altitude]
+
+
+def get_proj_transform_matrix(
+    reference: TopocentricConverter,
+    projection: pyproj.Transformer,
+    offset=(0, 0),
+) -> ndarray:
+    """Get the linear transform from reconstruction coords to geocoords."""
+    p = [[1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, 0]]
+    q = [transform_to_proj(point, reference, projection) for point in p]
+
+    return np.array(
+        [
+            [
+                q[0][0] - q[3][0],
+                q[1][0] - q[3][0],
+                q[2][0] - q[3][0],
+                q[3][0] - offset[0],
+            ],
+            [
+                q[0][1] - q[3][1],
+                q[1][1] - q[3][1],
+                q[2][1] - q[3][1],
+                q[3][1] - offset[1],
+            ],
+            [
+                q[0][2] - q[3][2],
+                q[1][2] - q[3][2],
+                q[2][2] - q[3][2],
+                q[3][2],
+            ],
+            [0, 0, 0, 1],
+        ]
+    )
+
+
+def transform_reconstruction_with_proj(
+    reconstruction, transformation: pyproj.Transformer
+) -> None:
+    """Apply a projection transformer to a reconstruction in-place."""
+    eps = 1e-3
+    for shot in reconstruction.shots.values():
+        origin = shot.pose.get_origin()
+
+        p0 = np.array(transform_to_proj(origin, reconstruction.reference, transformation))
+        px = np.array(
+            transform_to_proj(origin + [eps, 0, 0], reconstruction.reference, transformation)
+        )
+        py = np.array(
+            transform_to_proj(origin + [0, eps, 0], reconstruction.reference, transformation)
+        )
+        pz = np.array(
+            transform_to_proj(origin + [0, 0, eps], reconstruction.reference, transformation)
+        )
+        J = np.column_stack(((px - p0) / eps, (py - p0) / eps, (pz - p0) / eps))
+
+        shot.pose.set_origin(p0)
+        shot.pose.set_rotation_matrix(
+            np.dot(shot.pose.get_rotation_matrix(), np.linalg.inv(J))
+        )
+
+    for point in reconstruction.points.values():
+        point.coordinates = transform_to_proj(
+            point.coordinates, reconstruction.reference, transformation
+        )

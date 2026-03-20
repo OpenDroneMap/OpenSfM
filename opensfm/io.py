@@ -902,23 +902,38 @@ def _parse_utm_projection_string(line: str) -> str:
     return s.format(zone_number, zone_hemisphere)
 
 
-def _parse_projection(line: str) -> Optional[pyproj.Transformer]:
-    """Build a proj4 from the GCP format line."""
-    crs_4326 = pyproj.CRS.from_epsg(4326)
-    if line.strip() == "WGS84":
+def _parse_projection_string(line: str) -> Optional[str]:
+    """Parse the projection string from the GCP format line."""
+    line = line.strip()
+    if line == "WGS84":
         return None
     elif line.upper().startswith("WGS84 UTM"):
-        return pyproj.Transformer.from_proj(
-            pyproj.CRS(_parse_utm_projection_string(line)), crs_4326
-        )
-    elif "+proj" in line:
-        return pyproj.Transformer.from_proj(pyproj.CRS(line), crs_4326)
-    elif line.upper().startswith("EPSG:"):
-        return pyproj.Transformer.from_proj(
-            pyproj.CRS.from_epsg(int(line.split(":")[1])), crs_4326
-        )
+        return _parse_utm_projection_string(line)
+    elif "+proj" in line or line.upper().startswith("EPSG:"):
+        return line
     else:
         raise ValueError("Un-supported geo system definition: {}".format(line))
+
+
+def _parse_projection(line: str) -> Optional[pyproj.Transformer]:
+    """Build a proj4 transformer from the GCP format line."""
+    projection_string = _parse_projection_string(line)
+    if projection_string is None:
+        return None
+    return geo.construct_proj_transformer(projection_string)
+
+
+def read_gcp_projection_string(fileobj: IO[str]) -> Optional[str]:
+    """Read the projection string from a gcp_list.txt file."""
+    for line in fileobj:
+        if _valid_gcp_line(line):
+            return _parse_projection_string(line)
+    return None
+
+
+def read_gcp_projection(line: str) -> Optional[str]:
+    """Read the projection string from a GCP format line."""
+    return _parse_projection_string(line)
 
 
 def _valid_gcp_line(line: str) -> bool:
