@@ -46,6 +46,12 @@ def run_dataset(
     projection = geo.construct_proj_transformer(proj, inverse=True)
     t = geo.get_proj_transform_matrix(reference, projection)
 
+    # Must use UTM offset to keep coords small, else downstream float32
+    # consumers will fail (e.g. texrecon)
+    offset_vec = np.array([offset[0], offset[1], 0.0])
+    t[0, 3] -= offset[0]
+    t[1, 3] -= offset[1]
+
     if transformation:
         output = output or "geocoords_transformation.txt"
         output_path = os.path.join(data.data_path, output)
@@ -61,6 +67,10 @@ def run_dataset(
         reconstructions = data.load_reconstruction()
         for r in reconstructions:
             geo.transform_reconstruction_with_proj(r, projection)
+            for shot in r.shots.values():
+                shot.pose.set_origin(shot.pose.get_origin() - offset_vec)
+            for point in r.points.values():
+                point.coordinates = np.asarray(point.coordinates) - offset_vec
         output = output or "reconstruction.geocoords.json"
         data.save_reconstruction(reconstructions, output)
 
