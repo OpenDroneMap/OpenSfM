@@ -1,3 +1,11 @@
+# This is OpenDroneMap's OpenSfM fork
+
+This fork is pretty close to upstream OpenSfM:OpenSfM, but includes changes specific to ODM.
+
+Please note that all such changes are released under the AGPLv3 license, not BSD.
+
+---
+
 ![OpenSfM](doc/images/logo_small.png)
 
 
@@ -137,6 +145,8 @@ Add `--dense` to include the dense stages, or `--resume` to recover an interrupt
 * [Benchmarking](doc/benchmark.md)
 
 ## ⚖️ License
-OpenSfM is BSD-style licensed, as found in the LICENSE file.
+Upstream OpenSfM is BSD-style licensed.
+
+> Changes specific to this OpenDroneMap fork are released under the AGPLv3 license, as found in the LICENSE file.
 
 Example data in the README is under [Creative Commons CC-BY 4.0 License](https://creativecommons.org/licenses/by/4.0/) by Wingtra AG, 8045 Zürich, Switzerland.
