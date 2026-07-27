@@ -670,7 +670,9 @@ class OpenSfMConfig:
     ####################################
     # The projection type of the camera : attempt to detect it from metadata (AUTO),
     #  or set it manually (PERSPECTIVE, BROWN, FISHEYE, SPHERICAL) 
-    camera_projection_type: str = "AUTO"
+    camera_projection_type: str = "AUTO" 
+    # SfM algorithm to use to run reconstruction (incremental, triangulation)
+    reconstruction_algorithm: str = "incremental"
 
 
 def default_config() -> Dict[str, Any]:

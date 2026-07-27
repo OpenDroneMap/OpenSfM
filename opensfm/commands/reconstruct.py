@@ -21,5 +21,5 @@ class Command(command.CommandBase):
             help="SfM algorithm to use to run reconstrution",
             type=str,
             choices=[k.value for k in reconstruction.ReconstructionAlgorithm],
-            default=reconstruction.ReconstructionAlgorithm.INCREMENTAL.value,
+            default=None,
         )

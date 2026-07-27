@@ -6,7 +6,7 @@ from typing import Any, List
 
 import pytest
 
-from opensfm import commands, dataset
+from opensfm import commands, dataset, reconstruction
 from opensfm.test import data_generation, utils
 
 
@@ -103,3 +103,35 @@ def check_export_geocoords(data: dataset.DataSet) -> None:
     assert len(geocoords_rec) > 0
     assert len(geocoords_rec[0].shots) == 3
     assert len(geocoords_rec[0].points) > 1000
+
+
+def test_command_reconstruct_config(tmpdir: Any, monkeypatch: Any) -> None:
+    """
+    Mocks Reconstruct command algorithm setting from config.py::reconstruction_algorithm
+    """
+    data = data_generation.create_berlin_test_folder(tmpdir)
+    # Set the config to use triangulation
+    data_generation.save_config({"reconstruction_algorithm": "triangulation"}, data.data_path)
+    
+    called_algorithm = None
+
+    def mock_triangulation(dataset: Any, tracks: Any) -> Any:
+        nonlocal called_algorithm
+        called_algorithm = "triangulation"
+        return {}, []
+
+    def mock_incremental(dataset: Any, tracks: Any) -> Any:
+        nonlocal called_algorithm
+        called_algorithm = "incremental"
+        return {}, []
+
+    # Mock the actual algorithms so it doesn't take forever to run
+    monkeypatch.setattr(reconstruction, "triangulation_reconstruction", mock_triangulation)
+    monkeypatch.setattr(reconstruction, "incremental_reconstruction", mock_incremental)
+    monkeypatch.setattr(dataset.DataSet, "load_tracks_manager", lambda self, *args, **kwargs: None)
+
+    # Run the command with no --algorithm flag, it should fall back to config
+    command = commands.reconstruct.Command()
+    run_command(command, [data.data_path])
+    
+    assert called_algorithm == "triangulation"
