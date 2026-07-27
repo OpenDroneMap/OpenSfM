@@ -44,6 +44,7 @@ def test_run_all(tmpdir: Any) -> None:
         commands.export_colmap,
         commands.compute_statistics,
         commands.export_report,
+        commands.export_geocoords,
     ]
 
     output_rec_path = join(data.data_path, "rec_prior.json")
@@ -53,6 +54,17 @@ def test_run_all(tmpdir: Any) -> None:
             join(data.data_path, "reconstruction.json"),
             "--output",
             output_rec_path,
+        ],
+        commands.export_geocoords: [
+            "--proj",
+            "+proj=utm +zone=33 +datum=WGS84 +units=m +no_defs",
+            "--offset-x",
+            "100",
+            "--offset-y",
+            "200",
+            "--mode",
+            "projected",
+            "--reconstruction"
         ]
     }
 
@@ -63,6 +75,7 @@ def test_run_all(tmpdir: Any) -> None:
 
     check_reconstruction(data)
     check_prior(data, output_rec_path)
+    check_export_geocoords(data)
 
 
 def check_reconstruction(data: dataset.DataSet) -> None:
@@ -78,3 +91,15 @@ def check_prior(data: dataset.DataSet, output_rec_path: str) -> None:
         utils.assert_shots_equal(shot, prior_rec[0].shots[shot_id])
 
     assert len(prior_rec[0].points) > 1000
+
+
+def check_export_geocoords(data: dataset.DataSet) -> None:
+    import os
+    geocoords_path = join(data.data_path, "reconstruction.geocoords.json")
+    assert os.path.exists(geocoords_path)
+    
+    # Load and check if points/shots exist in the exported file
+    geocoords_rec = data.load_reconstruction("reconstruction.geocoords.json")
+    assert len(geocoords_rec) > 0
+    assert len(geocoords_rec[0].shots) == 3
+    assert len(geocoords_rec[0].points) > 1000
