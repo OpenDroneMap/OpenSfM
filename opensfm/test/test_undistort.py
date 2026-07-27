@@ -3,6 +3,7 @@ import itertools
 
 import numpy as np
 from opensfm import pygeometry, pymap, types, undistort
+from unittest.mock import MagicMock
 
 
 def test_perspective_views_of_a_panorama() -> None:
@@ -193,3 +194,29 @@ def test_validity_from_remap_no_remap() -> None:
     result = undistort._validity_from_remap({}, 20, 20, [shot], 1000)
     assert "s1" in result
     assert np.all(result["s1"] == 255)
+
+def test_image_filter_is_applied() -> None:
+    """Check that imageFilter is called during undistortion."""
+    rec = types.Reconstruction()
+    shot = _make_undistorted_shot(rec, "s1")
+
+    data = MagicMock()
+    data.config = {"undistorted_image_max_size": 1000}
+    original_image = np.ones((10, 10, 3), dtype=np.uint8)
+    data.load_image.return_value = original_image
+    data.load_mask.return_value = None
+    data.load_segmentation.return_value = None
+    data.load_detection.return_value = None
+
+    udata = MagicMock()
+
+    filter_called = False
+    def mock_filter(shot_id, img):
+        nonlocal filter_called
+        filter_called = True
+        assert shot_id == "s1"
+        return img * 2
+
+    arguments = (shot, [shot], data, udata, mock_filter, {})
+    undistort.undistort_image_and_masks(arguments)
+    assert filter_called

@@ -1,6 +1,7 @@
 # pyre-strict
 import os
-from typing import Optional
+from typing import Callable, Optional
+import numpy as np
 
 from opensfm import dataset, undistort
 from opensfm.dataset import DataSet
@@ -12,6 +13,7 @@ def run_dataset(
     reconstruction_index: int = 0,
     tracks: Optional[str] = None,
     output: str = "undistorted",
+    imageFilter: Optional[Callable[[str, np.ndarray], np.ndarray]] = None,
     skip_images: bool = False,
 ) -> None:
     """Export reconstruction to NVM_V3 format from VisualSfM
@@ -36,5 +38,5 @@ def run_dataset(
     if reconstructions:
         r = reconstructions[reconstruction_index]
         undistort.undistort_reconstruction_with_images(
-            tracks_manager, r, data, udata, skip_images
+            tracks_manager, r, data, udata, imageFilter, skip_images
         )

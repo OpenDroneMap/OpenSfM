@@ -1,7 +1,8 @@
 # pyre-strict
 import itertools
 import logging
-from typing import Dict, Iterator, List, Optional, Tuple
+import os
+from typing import Callable, Dict, Iterator, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -20,6 +21,9 @@ from opensfm.dataset import UndistortedDataSet
 from opensfm.dataset_base import DataSetBase
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+ImageFilterType = Callable[[str, NDArray], NDArray]
+CameraMappingsType = Dict[str, Tuple[NDArray, NDArray]]
 
 
 def undistort_reconstruction(
@@ -86,20 +90,92 @@ def undistort_reconstruction(
     return undistorted_shots
 
 
+def dump_camera_mapping_cache(camera_mappings_dict: Dict[str, Tuple[NDArray, NDArray]], dest_file: str) -> None:
+    ids = []
+    outs = {}
+
+    def cast_to_max(arr: NDArray) -> NDArray:
+        m = np.max(arr)
+        if m <= 255:
+            return arr.astype(np.uint8)
+        elif m <= 65535:
+            return arr.astype(np.uint16)
+        else:
+            return arr.astype(np.uint32)
+            
+    # Dump the camera mappings information for each camera
+    # compressing the numbers by rounding to nearest int * mul
+    # and then by attempting to offset the values
+    # the original value of the map can then be computed with:
+    # map1[px_y, px_x] <--> ((compressed_map1[px_y,px_x] + offset[0]) / 10.0) + px_x
+    # map2[px_y, px_x] <--> ((compressed_map2[px_y,px_x] + offset[1]) / 10.0) + px_y
+    # (note our values are rounded to 1/10th of a pixel)
+    idx = 0
+    for key, (map1, map2) in camera_mappings_dict.items():
+        ids.append(key)
+        map1 = np.round(map1).astype(np.float32)
+        map2 = np.round(map2).astype(np.float32)
+        mul = 10.0 # keep precision up to 1/10th of a pixel
+
+        i = np.arange(map1.shape[0]).reshape(-1, 1)
+        j = np.arange(map1.shape[1])
+        map1 -= j
+        map2 -= i
+        map1 = np.round(map1 * mul)
+        map2 = np.round(map2 * mul)
+        
+        offset = np.array([np.min(map1), np.min(map2)])
+        map1 -= offset[0]
+        map2 -= offset[1]
+
+        map1 = cast_to_max(map1)
+        map2 = cast_to_max(map2)
+
+        outs['%s_x' % idx] = map1
+        outs['%s_y' % idx] = map2
+        outs['%s_offset' % idx] = offset
+        outs['%s_mul' % idx] = np.array([mul])
+
+        idx += 1
+
+    np.savez_compressed(dest_file, ids=ids, **outs)
+
+
 def undistort_reconstruction_with_images(
     tracks_manager: Optional[pymap.TracksManager],
     reconstruction: types.Reconstruction,
     data: DataSetBase,
     udata: UndistortedDataSet,
+    imageFilter: Optional[ImageFilterType] = None,
     skip_images: bool = False,
 ) -> Dict[pymap.Shot, List[pymap.Shot]]:
     undistorted_shots = undistort_reconstruction(
         tracks_manager, reconstruction, data, udata
     )
     if not skip_images:
+        # Precompute camera mappings for the .npz dump
+        camera_mappings_dict = {}
+        for shot_id, subshots in undistorted_shots.items():
+            shot = reconstruction.shots[shot_id]
+            cam_id = shot.camera.id
+            if cam_id not in camera_mappings_dict and shot.camera.projection_type in _REMAP_CAMERA_TYPES:
+                [undistorted_shot] = subshots
+                height, width = shot.camera.height, shot.camera.width
+                map1, map2 = pygeometry.compute_camera_mapping(
+                    shot.camera, undistorted_shot.camera, width, height
+                )
+                camera_mappings_dict[cam_id] = (map1, map2)
+                
+        if camera_mappings_dict:
+            dump_camera_mapping_cache(camera_mappings_dict, os.path.join(data.data_path, "camera_mappings.npz"))
+
         arguments = []
         for shot_id, subshots in undistorted_shots.items():
-            arguments.append((reconstruction.shots[shot_id], subshots, data, udata))
+            arguments.append((reconstruction.shots[shot_id], subshots, data, udata, imageFilter, camera_mappings_dict))
+
+        # Sort arguments by camera ID so that joblib batches images from the same camera together.
+        # This maximizes cache hits in the worker processes and minimizes memory usage.
+        arguments.sort(key=lambda x: x[0].camera.id)
 
         processes = data.config["processes"]
 
@@ -126,9 +202,9 @@ def undistort_reconstruction_with_images(
 
 
 def undistort_image_and_masks(
-    arguments: Tuple[pymap.Shot, List[pymap.Shot], DataSetBase, UndistortedDataSet],
+    arguments: Tuple[pymap.Shot, List[pymap.Shot], DataSetBase, UndistortedDataSet, Optional[ImageFilterType], CameraMappingsType],
 ) -> None:
-    shot, undistorted_shots, data, udata = arguments
+    shot, undistorted_shots, data, udata, imageFilter, camera_mappings_dict = arguments
     log.setup()
     logger.debug("Undistorting image {}".format(shot.id))
     max_size = data.config["undistorted_image_max_size"]
@@ -136,8 +212,15 @@ def undistort_image_and_masks(
     # Undistort image
     image = data.load_image(shot.id, unchanged=True, anydepth=True)
     if image is not None:
+        if imageFilter is not None:
+            image = imageFilter(shot.id, image)
+
         height, width = image.shape[:2]
-        remap = _compute_camera_remap(shot, undistorted_shots, height, width)
+        remap = None
+        if shot.camera.id in camera_mappings_dict:
+            remap = {undistorted_shots[0].id: camera_mappings_dict[shot.camera.id]}
+        else:
+            remap = _compute_camera_remap(shot, undistorted_shots, height, width)
 
         undistorted = undistort_image(
             shot, undistorted_shots, image, cv2.INTER_AREA, max_size,
@@ -178,7 +261,7 @@ def undistort_image(
     original: Optional[NDArray],
     interpolation: int,
     max_size: int,
-    remap: Optional[Dict[str, Tuple[NDArray, NDArray]]] = None,
+    remap: Optional[CameraMappingsType] = None,
 ) -> Dict[str, NDArray]:
     """Undistort an image into a set of undistorted ones.
 
@@ -254,7 +337,7 @@ def _compute_camera_remap(
     undistorted_shots: List[pymap.Shot],
     height: int,
     width: int,
-) -> Dict[str, Tuple[NDArray, NDArray]]:
+) -> CameraMappingsType:
     """Compute per-undistorted-view remap coordinate maps.
 
     For standard camera types returns ``{shot_id: (map1, map2)}``.
