@@ -665,6 +665,13 @@ class OpenSfMConfig:
     # Language for the quality report: "en", "fr", "es", "de", "it"
     report_language: str = "en"
 
+    ####################################
+    # ODM specific flags
+    ####################################
+    # The projection type of the camera : attempt to detect it from metadata (AUTO),
+    #  or set it manually (PERSPECTIVE, BROWN, FISHEYE, SPHERICAL) 
+    camera_projection_type: str = "AUTO"
+
 
 def default_config() -> Dict[str, Any]:
     """Return default configuration"""

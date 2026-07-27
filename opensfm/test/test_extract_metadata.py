@@ -56,6 +56,14 @@ class FakeData:
     def init_reference(self) -> None:
         self.init_reference_calls += 1
 
+    def open_image_file(self, image: str) -> Any:
+        class DummyFile:
+            def __enter__(self) -> Any: return self
+            def __exit__(self, *args: Any) -> None: pass
+        return DummyFile()
+
+    def image_size(self, image: str) -> Any:
+        return (1000, 1000)
 
 def test_run_dataset_force_reextracts_and_initializes_reference(
     monkeypatch: Any,
@@ -157,3 +165,24 @@ def test_command_passes_force_flag(monkeypatch: Any) -> None:
     command.run_impl(dataset, args)
 
     assert called == {"dataset": dataset, "force": True}
+
+
+def test_extract_exif_overrides_projection_type(monkeypatch: Any) -> None:
+    """
+    Tests flag camera_projection_type (Overrides if != AUTO[Default])
+    """
+    data = FakeData(["image.jpg"], {}, {})
+    data.config["camera_projection_type"] = "BROWN"
+    data.config["use_exif_size"] = False
+    data.config["default_projection_type"] = "perspective"
+    data.config["unknown_camera_models_are_different"] = False
+
+    monkeypatch.setattr(
+        extract_metadata_action.exif,
+        "extract_exif_from_file",
+        lambda *a, **k: {"model": "m", "camera": "c", "projection_type": "perspective"}
+    )
+    monkeypatch.setattr(extract_metadata_action.exif, "camera_id", lambda d: "c")
+
+    d = extract_metadata_action._extract_exif("image.jpg", data)
+    assert d["projection_type"] == "brown"
