@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+
+import argparse
+import os.path
+
+import matplotlib.pyplot as plt
+from matplotlib.collections import PatchCollection
+from matplotlib.patches import Wedge
+
+from opensfm import dataset
+from opensfm import features
+from opensfm import io
+
+
+def plot_features(image, points, orig_points):
+    h, w, d = image.shape
+    pixels = features.denormalized_image_coordinates(points, w, h)
+    pixels_orig = features.denormalized_image_coordinates(orig_points, w, h)
+    
+    points[:, 2] = 0.001
+    sizes = points[:, 2] * max(w, h)
+    angles = points[:, 3]
+
+    ax = plt.axes()
+    ax.imshow(image)
+
+    patches = []
+    for p, s, a in zip(pixels, sizes, angles):
+        patches.append(Wedge(p, s, a + 1, a - 1))
+
+    orig_points[:, 2] = 0.001
+    sizes_orig = orig_points[:, 2] * max(w, h)
+    angles_orig = orig_points[:, 3]
+    orig_patches = []
+
+    for p, s, a in zip(pixels_orig, sizes_orig, angles_orig):
+        orig_patches.append(Wedge(p, s, a + 1, a - 1))
+
+    collection = PatchCollection(patches, alpha=0.5, edgecolor='b', facecolor='w')
+    orig_collection = PatchCollection(orig_patches, alpha=0.5, edgecolor='r', facecolor='w')
+    
+    ax.add_collection(orig_collection)
+    ax.add_collection(collection)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="""
+    Plot detected features
+    NOTE that we require to backup the original features e.g.:
+    1. Backup: cp -r path/to/dataset/features path/to/dataset/features.orig
+    2. Correct: bin/opensfm correct_rolling_shutter path/to/dataset
+    3. Plot: python bin/rolling_shutter_plot path/to/dataset --image image.jpg
+    """)
+    parser.add_argument('dataset',
+                        help='path to the dataset to be processed')
+    parser.add_argument('--image',
+                        help='name of the image to show')
+    parser.add_argument('--save_figs',
+                        help='save figures instead of showing them',
+                        action='store_true')
+    args = parser.parse_args()
+
+    data = dataset.DataSet(args.dataset)
+
+    images = [args.image] if args.image else data.images()
+    for image in images:
+        # Load the corrected features
+        features_data = data.load_features(image)
+        
+        # Manually load the original features from features.orig
+        features_orig_path = os.path.join(data.data_path, "features.orig", image + ".features.npz")
+        features_data_orig = None
+        if os.path.exists(features_orig_path):
+            with data.io_handler.open_rb(features_orig_path) as f:
+                features_data_orig = features.FeaturesData.from_file(f, data.config)
+
+        if not features_data:
+            continue
+        if not features_data_orig:
+            print(f"Skipping {image} because features.orig not found. Did you backup features to features.orig before running correct_rolling_shutter?")
+            continue
+
+        points = features_data.points
+        orig_points = features_data_orig.points
+
+        print("plotting {0}/{1} points".format(len(points), len(orig_points)))
+        plt.figure()
+        plt.title('Image: ' + image)
+        fig = plot_features(data.load_image(image), points, orig_points)
+
+        if args.save_figs:
+            p = os.path.join(args.dataset, 'plot_features')
+            io.mkdir_p(p)
+            plt.savefig(os.path.join(p, image + '.jpg'), dpi=1000)
+            plt.close()
+        else:
+            plt.show()
