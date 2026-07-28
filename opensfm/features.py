@@ -419,6 +419,22 @@ def extract_features_sift(
     return points, desc
 
 
+def extract_features_popsift(
+    image: np.ndarray, config: Dict[str, Any], features_count: int
+) -> Tuple[np.ndarray, np.ndarray]:
+    from opensfm import pypopsift
+
+    sift_edge_threshold = float(config["sift_edge_threshold"])
+    sift_peak_threshold = float(config["sift_peak_threshold"])
+
+    points, desc = pypopsift.popsift(image, peak_threshold=sift_peak_threshold,
+                                edge_threshold=sift_edge_threshold,
+                                target_num_features=features_count,
+                                use_root=bool(config["feature_root"]))
+
+    return points, desc
+
+
 def extract_features_surf(
     image: NDArray, config: Dict[str, Any], features_count: int
 ) -> Tuple[NDArray, NDArray]:
@@ -638,11 +654,13 @@ def extract_features(
         points, desc = extract_features_hahog(image_gray, config, features_count)
     elif feature_type == "ORB":
         points, desc = extract_features_orb(image_gray, config, features_count)
+    elif feature_type == 'SIFT_GPU':
+        points, desc = extract_features_popsift(image_gray, config, features_count)
     elif feature_type == 'DSPSIFT':
         points, desc = extract_features_dspsift(image_gray, config, features_count)
     else:
         raise ValueError(
-            "Unknown feature type (must be SURF, SIFT, AKAZE, HAHOG, ORB or DSPSIFT)"
+            "Unknown feature type (must be SURF, SIFT, AKAZE, HAHOG, ORB, SIFT_GPU or DSPSIFT)"
         )
 
     xs = points[:, 0].round().astype(int)
