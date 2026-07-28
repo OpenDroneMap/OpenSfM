@@ -292,6 +292,41 @@ def all_common_tracks(
     return common_tracks
 
 
+def np_all_common_tracks_with_features(
+    tracks_manager: pymap.TracksManager,
+    min_common: int = 50,
+):
+    """Same as all_common_tracks, but as a numpy structure + dictionary for indexing"""
+    all_pairs = tracks_manager.get_all_pairs_connectivity().items()
+    common_tracks_data = []
+    common_tracks_index = {}
+    rec_start = 0
+    for pair, size in all_pairs:
+        if size < min_common:
+            continue
+        
+        tuples = tracks_manager.get_all_common_observations(pair[0], pair[1])
+        num_tracks = len(tuples)
+        rec_end = rec_start + num_tracks * 8
+
+        for j in range(num_tracks):
+            pair_track, p1, p2 = tuples[j]
+
+            common_tracks_data.append(float(pair_track))
+            common_tracks_data.append(p1.point[0])
+            common_tracks_data.append(p1.point[1])
+            common_tracks_data.append(1.0) # Homogeneous
+            common_tracks_data.append(p2.point[0])
+            common_tracks_data.append(p2.point[1])
+            common_tracks_data.append(1.0) # Homogeneous
+            common_tracks_data.append(0.0) # Align to 8bit boundary
+
+        common_tracks_index[pair] = (num_tracks, rec_start, rec_end)
+        rec_start = rec_end
+
+    return np.reshape(common_tracks_data, newshape=(len(common_tracks_data), )), common_tracks_index
+
+
 def _good_track(track: List[Tuple[str, int]], min_length: int) -> bool:
     if len(track) < min_length:
         return False

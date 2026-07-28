@@ -548,3 +548,4 @@ def compare(
         if len(rig_instance_assignment) > 0
         else 1.0,
     }
+

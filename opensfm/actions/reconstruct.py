@@ -29,6 +29,10 @@ def run_dataset(
         report, reconstructions = reconstruction.triangulation_reconstruction(
             data, tracks_manager
         )
+    elif algorithm == reconstruction.ReconstructionAlgorithm.PLANAR:
+        report, reconstructions = reconstruction.planar_reconstruction(
+            data, tracks_manager
+        )
     else:
         raise RuntimeError(
             f"Unsupported algorithm for reconstruction {algorithm}")
