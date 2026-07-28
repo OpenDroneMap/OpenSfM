@@ -18,7 +18,7 @@ class OpenSfMConfig:
     # Treat images from unknown camera models as coming from different cameras
     unknown_camera_models_are_different: bool = False
     # Default projection type to use when it cannot be inferred from EXIF metadata
-    default_projection_type: str = "perspective"
+    default_projection_type: str = "brown"
     # Default focal length to sensor size ratio to use when it cannot be inferred from EXIF metadata
     default_focal_prior: float = 0.85
     # Enable downloading missing datum grids from the PROJ CDN

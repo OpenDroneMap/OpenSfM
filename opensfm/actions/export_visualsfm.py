@@ -54,11 +54,7 @@ def export(
         shot_size_cache[shot.id] = udata.undistorted_image_size(shot.id)
         shot_index[shot.id] = i
         i += 1
-        if shot.camera.projection_type == "brown":
-            # Will approximate Brown model, not optimal
-            focal_normalized = (shot.camera.focal_x + shot.camera.focal_y) / 2.0
-        else:
-            focal_normalized = shot.camera.focal
+        focal_normalized = shot.camera.focal
 
         words = [
             image_path(shot.id, udata),
