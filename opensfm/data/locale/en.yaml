@@ -24,10 +24,14 @@ dataset: "Dataset"
 date: "Date"
 area_covered: "Area Covered"
 processing_time: "Processing Time"
+capture_start: "Capture Start"
+capture_end: "Capture End"
 
 # Processing summary row labels
 reconstructed_images: "Reconstructed Images"
 reconstructed_points: "Reconstructed Points"
+reconstructed_points_sparse: "Reconstructed Points (Sparse)"
+reconstructed_points_dense: "Reconstructed Points (Dense)"
 average_track_length: "Average Track Length"
 camera_calibration_deviation: "Camera Calibration Deviation"
 front_overlap: "Front Overlap"
@@ -38,6 +42,8 @@ geographic_referencing: "Geographic Referencing"
 gcp_coordinate_system: "GCP Coordinate System"
 gps_error: "GPS Error"
 gcp_error: "GCP Error"
+alignment: "Alignment"
+alignment_errors: "Alignment Errors"
 
 # Reconstruction details
 reprojection_error: "Reprojection Error (norm / px / angular)"
