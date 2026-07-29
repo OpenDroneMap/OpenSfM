@@ -11,6 +11,7 @@
 #include <bundle/mixture_reweighting.h>
 #include <foundation/types.h>
 
+#include <algorithm>
 #include <stdexcept>
 #include <string>
 #include <unordered_set>
@@ -674,8 +675,14 @@ void BundleAdjuster::Run() {
   for (auto& [_, cam] : cameras_) {
     auto& data = cam.GetValueData();
     solver.AddParameterBlock(data.data(), data.size());
-    ApplyParameterLocking(solver, data.data(), data.size(),
-                          cam.GetParametersToOptimize());
+
+    // Keep aspect ratio (index 6) constant (BROWN only)
+    auto params = cam.GetParametersToOptimize();
+    if (!params.empty() &&
+        cam.GetValue().GetProjectionType() == geometry::ProjectionType::BROWN) {
+      params.erase(std::remove(params.begin(), params.end(), 6), params.end());
+    }
+    ApplyParameterLocking(solver, data.data(), data.size(), params);
 
     // Add a barrier for constraining transition of dual to stay in [0, 1]
     const auto camera = cam.GetValue();
