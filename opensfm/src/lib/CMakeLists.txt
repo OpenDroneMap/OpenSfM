@@ -43,9 +43,16 @@ endif()
 ####### Find Dependencies #######
 # Note: Common dependencies are in ../cmake/OpenSfMCommon.cmake
 
+if (ADDITIONAL_INCLUDE_DIRS)
+    include_directories(${ADDITIONAL_INCLUDE_DIRS})
+endif()
+if (YET_ADDITIONAL_INCLUDE_DIRS)
+    include_directories(${YET_ADDITIONAL_INCLUDE_DIRS})
+endif()
+
 find_package(LAPACK)
 find_package(SuiteSparse)
-find_package(Ceres)
+find_package(Ceres REQUIRED)
 find_package(absl REQUIRED)
 
 find_library(TCMALLOC_LIBRARY tcmalloc)
