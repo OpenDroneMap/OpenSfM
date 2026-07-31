@@ -539,10 +539,10 @@ def transform_reconstruction_with_matrix(
     A, b = transformation[:3, :3], transformation[:3, 3]
     A1 = np.linalg.inv(A)
 
-    for shot in reconstruction.shots.values():
-        R = shot.pose.get_rotation_matrix()
-        shot.pose.set_rotation_matrix(np.dot(R, A1))
-        shot.pose.set_origin(np.dot(A, shot.pose.get_origin()) + b)
+    for rig_instance in reconstruction.rig_instances.values():
+        R = rig_instance.pose.get_rotation_matrix()
+        rig_instance.pose.set_rotation_matrix(np.dot(R, A1))
+        rig_instance.pose.set_origin(np.dot(A, rig_instance.pose.get_origin()) + b)
 
     for point in reconstruction.points.values():
         point.coordinates = list(np.dot(A, point.coordinates) + b)
