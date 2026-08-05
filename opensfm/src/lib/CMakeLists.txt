@@ -55,16 +55,19 @@ find_package(SuiteSparse)
 find_package(Ceres REQUIRED)
 find_package(absl REQUIRED)
 
-find_library(TCMALLOC_LIBRARY tcmalloc)
+option(OPENSFM_LINK_TCMALLOC "Link tcmalloc into targets on Linux" ON)
+if(OPENSFM_LINK_TCMALLOC)
+    find_library(TCMALLOC_LIBRARY tcmalloc)
 
-# Only link tcmalloc on Linux: on MacOS, it conflicts 
-# with the system allocator and causes crashes.
-if(UNIX AND NOT APPLE)
-    if(TCMALLOC_LIBRARY)
-        message(STATUS "Found tcmalloc: ${TCMALLOC_LIBRARY}")
-        link_libraries(${TCMALLOC_LIBRARY})
-    else()
-        message(WARNING "tcmalloc not found. Please install gperftools.")
+    # Only link tcmalloc on Linux: on MacOS, it conflicts 
+    # with the system allocator and causes crashes.
+    if(UNIX AND NOT APPLE)
+        if(TCMALLOC_LIBRARY)
+            message(STATUS "Found tcmalloc: ${TCMALLOC_LIBRARY}")
+            link_libraries(${TCMALLOC_LIBRARY})
+        else()
+            message(WARNING "tcmalloc not found. Please install gperftools.")
+        endif()
     endif()
 endif()
 
