@@ -207,10 +207,13 @@ std::string IRLSSummary::BriefReport() const {
 
 IRLSSolver::IRLSSolver()
     : problem_(ProblemOptions()),
+      context_(IRLSSolverContext()),
       reweighting_strategy_(std::make_unique<MixtureReweighting>()) {}
 
 IRLSSolver::IRLSSolver(std::unique_ptr<IReweightingStrategy> strategy)
-    : problem_(ProblemOptions()), reweighting_strategy_(std::move(strategy)) {}
+    : problem_(ProblemOptions()), 
+      context_(IRLSSolverContext()),
+      reweighting_strategy_(std::move(strategy)) {}
 
 IRLSSolver::~IRLSSolver() {
   for (auto& [group_id, error_group] : error_groups_) {
