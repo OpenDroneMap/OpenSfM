@@ -6,17 +6,17 @@
   },
   "reports": [
     {
-      "branch_rate": 46.484874307626754,
-      "branches_covered": 2182,
+      "branch_rate": 46.463570515551766,
+      "branches_covered": 2181,
       "branches_valid": 4694,
-      "line_rate": 62.55166882596088,
-      "lines_covered": 10139,
+      "line_rate": 62.54549941390586,
+      "lines_covered": 10138,
       "lines_valid": 16209,
       "name": "coverage-python"
     },
     {
-      "branch_rate": 28.73216374269006,
-      "branches_covered": 12283,
+      "branch_rate": 28.72982456140351,
+      "branches_covered": 12282,
       "branches_valid": 42750,
       "line_rate": 51.57989877078815,
       "lines_covered": 14267,
@@ -25,11 +25,11 @@
     }
   ],
   "total": {
-    "branch_rate": 30.488576005395835,
-    "branches_covered": 14465,
+    "branch_rate": 30.48436050923194,
+    "branches_covered": 14463,
     "branches_valid": 47444,
-    "line_rate": 55.633818869816956,
-    "lines_covered": 24406,
+    "line_rate": 55.631539355809345,
+    "lines_covered": 24405,
     "lines_valid": 43869,
     "name": "total"
   }
