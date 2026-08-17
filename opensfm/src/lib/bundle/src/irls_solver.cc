@@ -42,7 +42,7 @@ class WhiteningCostFunction : public ceres::CostFunction {
     r = L_inv * r;
 
     if (jacobians) {
-      const int num_params = parameter_block_sizes().size();
+      const int num_params = static_cast<int>(parameter_block_sizes().size());
       for (int i = 0; i < num_params; ++i) {
         if (jacobians[i]) {
           int block_size = parameter_block_sizes()[i];
@@ -362,7 +362,7 @@ std::vector<GroupWeightResult> IRLSSolver::ComputeWeights() {
 
     // Pre-compute sizes and offsets
     std::vector<int> block_offsets(num_blocks);
-    size_t total_residuals = 0;
+    int total_residuals = 0;
     for (size_t i = 0; i < num_blocks; ++i) {
       const ceres::ResidualBlockId block_id = error_group.residual_block_ids[i];
       const ceres::CostFunction* cost_function =
