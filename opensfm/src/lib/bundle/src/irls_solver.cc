@@ -361,8 +361,8 @@ std::vector<GroupWeightResult> IRLSSolver::ComputeWeights() {
     const size_t num_blocks = error_group.residual_block_ids.size();
 
     // Pre-compute sizes and offsets
-    std::vector<int> block_offsets(num_blocks);
-    int total_residuals = 0;
+    std::vector<size_t> block_offsets(num_blocks);
+    size_t total_residuals = 0;
     for (size_t i = 0; i < num_blocks; ++i) {
       const ceres::ResidualBlockId block_id = error_group.residual_block_ids[i];
       const ceres::CostFunction* cost_function =
