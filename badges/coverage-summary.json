@@ -15,21 +15,21 @@
       "name": "coverage-python"
     },
     {
-      "branch_rate": 28.72982456140351,
-      "branches_covered": 12282,
+      "branch_rate": 28.73918128654971,
+      "branches_covered": 12286,
       "branches_valid": 42750,
-      "line_rate": 51.57989877078815,
-      "lines_covered": 14267,
+      "line_rate": 51.58712942877802,
+      "lines_covered": 14269,
       "lines_valid": 27660,
       "name": "coverage-cpp"
     }
   ],
   "total": {
-    "branch_rate": 30.48436050923194,
-    "branches_covered": 14463,
+    "branch_rate": 30.492791501559736,
+    "branches_covered": 14467,
     "branches_valid": 47444,
-    "line_rate": 55.631539355809345,
-    "lines_covered": 24405,
+    "line_rate": 55.636098383824574,
+    "lines_covered": 24407,
     "lines_valid": 43869,
     "name": "total"
   }
