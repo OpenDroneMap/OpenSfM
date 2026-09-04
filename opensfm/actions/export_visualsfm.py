@@ -54,11 +54,7 @@ def export(
         shot_size_cache[shot.id] = udata.undistorted_image_size(shot.id)
         shot_index[shot.id] = i
         i += 1
-        if shot.camera.projection_type == "brown":
-            # Will approximate Brown model, not optimal
-            focal_normalized = (shot.camera.focal_x + shot.camera.focal_y) / 2.0
-        else:
-            focal_normalized = shot.camera.focal
+        focal_normalized = shot.camera.focal
 
         words = [
             image_path(shot.id, udata),
@@ -82,11 +78,11 @@ def export(
         skipped_points = 0
         lines.append("")
         points = reconstruction.points
+        shots_keys = list(reconstruction.shots.keys())
         lines.append(str(len(points)))
         points_count_index = len(lines) - 1
 
         for point_id, point in points.items():
-            shots = reconstruction.shots
             coord = point.coordinates
             color = list(map(int, point.color))
 
@@ -97,7 +93,7 @@ def export(
                 if export_only is not None and shot_key not in export_only:
                     continue
 
-                if shot_key in shots.keys():
+                if shot_key in shots_keys:
                     v = obs.point
                     x = (0.5 + v[0]) * shot_size_cache[shot_key][1]
                     y = (0.5 + v[1]) * shot_size_cache[shot_key][0]

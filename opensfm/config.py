@@ -18,7 +18,7 @@ class OpenSfMConfig:
     # Treat images from unknown camera models as coming from different cameras
     unknown_camera_models_are_different: bool = False
     # Default projection type to use when it cannot be inferred from EXIF metadata
-    default_projection_type: str = "perspective"
+    default_projection_type: str = "brown"
     # Default focal length to sensor size ratio to use when it cannot be inferred from EXIF metadata
     default_focal_prior: float = 0.85
     # Enable downloading missing datum grids from the PROJ CDN
@@ -53,7 +53,7 @@ class OpenSfMConfig:
     # Params for SIFT
     ##################################
     # Smaller value -> more features
-    sift_peak_threshold: float = 0.1
+    sift_peak_threshold: float = 0.2
     # See OpenCV doc
     sift_edge_threshold: int = 10
     # See OpenCV doc
@@ -664,6 +664,15 @@ class OpenSfMConfig:
     report_unit_system: str = "metric"
     # Language for the quality report: "en", "fr", "es", "de", "it"
     report_language: str = "en"
+
+    ####################################
+    # ODM specific flags
+    ####################################
+    # The projection type of the camera : attempt to detect it from metadata (AUTO),
+    #  or set it manually (PERSPECTIVE, BROWN, FISHEYE, SPHERICAL) 
+    camera_projection_type: str = "AUTO" 
+    # SfM algorithm to use to run reconstruction (incremental, triangulation)
+    reconstruction_algorithm: str = "incremental"
 
 
 def default_config() -> Dict[str, Any]:

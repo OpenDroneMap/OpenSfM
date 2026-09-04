@@ -118,7 +118,7 @@ def _quality_color_lower_is_better(
 
 
 class Report:
-    def __init__(self, data: DataSet, title: Optional[str] = None, accent_color: Optional[Tuple[int, int, int]] = None) -> None:
+    def __init__(self, data: DataSet, stats: Optional[Dict[str, Any]] = None, title: Optional[str] = None, accent_color: Optional[Tuple[int, int, int]] = None) -> None:
         self.output_path: str = os.path.join(data.data_path, "stats")
         self.dataset_name: str = os.path.basename(data.data_path)
         self.io_handler: io.IoFilesystemBase = data.io_handler
@@ -136,7 +136,7 @@ class Report:
         self.pdf.set_auto_page_break(auto=True, margin=MARGIN)
         self.pdf.add_page()
 
-        self.stats: Dict[str, Any] = data.load_stats()
+        self.stats: Dict[str, Any] = stats if stats is not None else data.load_stats()
 
     def save_report(self, filename: str) -> None:
         bytestring = self.pdf.output()
@@ -406,25 +406,22 @@ class Report:
         self.pdf.set_xy(title_x, MARGIN)
         self.pdf.set_font("Helvetica", "B", FONT_TITLE)
         self.pdf.set_text_color(*self.accent_color)
-        self.pdf.cell(0, 10, "OpenSfM", align="L")
+        self.pdf.cell(0, 10, "ODM", align="L")
 
         self.pdf.set_xy(title_x, MARGIN + 9)
         self.pdf.set_font("Helvetica", "", FONT_H1)
         self.pdf.set_text_color(*COLOR_PANEL)
         self.pdf.cell(0, 8, self.locale.t("quality_report"), align="L")
 
-        # Version number (right aligned)
+        # Version number (right aligned), read from ODM's VERSION file
+        version_file = os.path.join(os.path.dirname(
+            __file__), "..", "..", "..", "..", "..", "VERSION")
+        version = ""
         try:
-            out, _ = subprocess.Popen(
-                ["git", "describe", "--tags"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            ).communicate()
-            version = out.strip().decode()
-        except BaseException as e:
-            logger.warning(
-                f"Exception thrown while extracting 'git' version, {e}")
-            version = ""
+            with open(version_file, 'r') as f:
+                version = f.read().strip()
+        except Exception as e:
+            logger.warning("Invalid version file" + version_file + ": " + str(e))
 
         version = "unknown" if version == "" else version
 
@@ -439,8 +436,13 @@ class Report:
     def make_dataset_summary(self) -> None:
         self._make_section(self.locale.t("dataset_summary"))
 
+        # NOTE: ODM's odm_report stage provides a humanized total time; 
+        # fall back to OpenSfM's own step timings when running outside ODM.
+        odm_time_human = self.stats.get(
+            "odm_processing_statistics", {}).get("total_time_human")
+
         rows = [
-            [self.locale.t("dataset"), self.dataset_name],
+            #[self.locale.t("dataset"), self.dataset_name],
             [self.locale.t("date"),
              self.stats["processing_statistics"]["date"]],
             [
@@ -450,9 +452,15 @@ class Report:
             ],
             [
                 self.locale.t("processing_time"),
-                self.locale.format_time(
+                odm_time_human
+                if odm_time_human is not None
+                else self.locale.format_time(
                     self.stats["processing_statistics"]["steps_times"]["Total Time"]),
             ],
+            [self.locale.t("capture_start"),
+             self.stats["processing_statistics"]["start_date"]],
+            [self.locale.t("capture_end"),
+             self.stats["processing_statistics"]["end_date"]],
         ]
         self._make_table(None, rows, True)
         self.pdf.set_xy(MARGIN, self.pdf.get_y() + SECTION_GAP)
@@ -486,6 +494,9 @@ class Report:
         if self._has_meaningful_gcp():
             geo_string.append(self.locale.t("gcp"))
 
+        if "align" in self.stats:
+            geo_string = [self.locale.t("alignment")]
+
         ratio_shots = rec_shots / init_shots * 100 if init_shots > 0 else -1
         ratio_points = rec_points / init_points * 100 if init_points > 0 else -1
         avg_track = self.stats["reconstruction_statistics"]["average_track_length"]
@@ -507,7 +518,7 @@ class Report:
             shots_thresholds, col_sizes,
         )
         self._make_graded_row(
-            self.locale.t("reconstructed_points"),
+            self.locale.t("reconstructed_points_sparse"),
             ratio_points,
             f"{rec_points} / {init_points} ({ratio_points:.1f}%)",
             points_thresholds, col_sizes,
@@ -564,13 +575,30 @@ class Report:
                 self.locale.t("ground_sampling_distance"),
                 self.locale.format_gsd(gsd) if gsd > 0 else "N/A",
             ],
-            [
-                self.locale.t("reconstructed_components"),
-                f"{self.stats['reconstruction_statistics']['components']}",
-            ],
+            # [
+            #     self.locale.t("reconstructed_components"),
+            #     f"{self.stats['reconstruction_statistics']['components']}",
+            # ],
             [self.locale.t("geographic_referencing"), " + ".join(geo_string)
              if geo_string else self.locale.t("none")],
         ]
+
+        # Dense points (if available)
+        if self.stats.get("point_cloud_statistics"):
+            if self.stats["point_cloud_statistics"].get("dense"):
+                rows.insert(0, [
+                    self.locale.t("reconstructed_points_dense"),
+                    f"{self.stats['point_cloud_statistics']['stats']['statistic'][0]['count']:,} points",
+                ])
+
+        # Alignment RMSE (coarse + fine) instead of GPS/GCP errors
+        if "align" in self.stats:
+            rows.append([
+                self.locale.t("alignment_errors"),
+                self.locale.format_distance_label(
+                    self.stats["align"]["coarse"]["rmse_3d"]
+                    + self.stats["align"]["fine"]["rmse_3d"]),
+            ])
 
         # CRS of the georeferenced products (centralized decision: GCP CRS if
         # projected, else UTM).  Fall back to the GCP CRS for older stats files.
@@ -585,49 +613,51 @@ class Report:
         self._make_table(None, rows, True)
         self.pdf.set_xy(MARGIN, self.pdf.get_y() + TABLE_GAP)
 
-        # GPS error graded row (based on multiples of input std dev)
-        if self.stats["reconstruction_statistics"]["has_gps"] and "average_error" in self.stats.get("gps_errors", {}):
-            gps_avg_error = self.stats["gps_errors"]["average_error"]
-            avg_gps_std = self.stats["gps_errors"].get("average_gps_std")
-            if avg_gps_std:
-                # Use the average of XYZ std as reference
-                ref_std = (avg_gps_std["x"] +
-                           avg_gps_std["y"] + avg_gps_std["z"]) / 3.0
-                if ref_std > 1e-9:
-                    # Thresholds: good <= 2*std, avg <= 3*std, bad > 4*std (lower is better)
-                    gps_thresholds = (2.0 * ref_std, 3.0 *
-                                      ref_std, 4.0 * ref_std)
-                    self._make_graded_row_lower(
-                        self.locale.t("gps_error"),
-                        gps_avg_error,
-                        self.locale.format_distance_label(gps_avg_error),
-                        gps_thresholds, col_sizes,
-                    )
+        # GPS/GCP/CP error graded rows (skipped in alignment mode)
+        if "align" not in self.stats:
+            # GPS error graded row (based on multiples of input std dev)
+            if self.stats["reconstruction_statistics"]["has_gps"] and "average_error" in self.stats.get("gps_errors", {}):
+                gps_avg_error = self.stats["gps_errors"]["average_error"]
+                avg_gps_std = self.stats["gps_errors"].get("average_gps_std")
+                if avg_gps_std:
+                    # Use the average of XYZ std as reference
+                    ref_std = (avg_gps_std["x"] +
+                               avg_gps_std["y"] + avg_gps_std["z"]) / 3.0
+                    if ref_std > 1e-9:
+                        # Thresholds: good <= 2*std, avg <= 3*std, bad > 4*std (lower is better)
+                        gps_thresholds = (2.0 * ref_std, 3.0 *
+                                          ref_std, 4.0 * ref_std)
+                        self._make_graded_row_lower(
+                            self.locale.t("gps_error"),
+                            gps_avg_error,
+                            self.locale.format_distance_label(gps_avg_error),
+                            gps_thresholds, col_sizes,
+                        )
 
-        # GCP error graded row (based on GSD, same Z thresholds: good <= 3*GSD, avg <= 4*GSD, bad > 5*GSD)
-        if self._has_meaningful_gcp() and gsd > 0:
-            gcp_only = self.stats["gcp_errors"].get("gcp_only", {})
-            gcp_avg_error = gcp_only.get(
-                "average_error", self.stats["gcp_errors"]["average_error"])
-            gcp_thresholds = (3.0 * gsd, 4.0 * gsd, 5.0 * gsd)
-            self._make_graded_row_lower(
-                self.locale.t("gcp_error"),
-                gcp_avg_error,
-                self.locale.format_distance_label(gcp_avg_error, precision=3),
-                gcp_thresholds, col_sizes,
-            )
+            # GCP error graded row (based on GSD, same Z thresholds: good <= 3*GSD, avg <= 4*GSD, bad > 5*GSD)
+            if self._has_meaningful_gcp() and gsd > 0:
+                gcp_only = self.stats["gcp_errors"].get("gcp_only", {})
+                gcp_avg_error = gcp_only.get(
+                    "average_error", self.stats["gcp_errors"]["average_error"])
+                gcp_thresholds = (3.0 * gsd, 4.0 * gsd, 5.0 * gsd)
+                self._make_graded_row_lower(
+                    self.locale.t("gcp_error"),
+                    gcp_avg_error,
+                    self.locale.format_distance_label(gcp_avg_error, precision=3),
+                    gcp_thresholds, col_sizes,
+                )
 
-        # CP error graded row
-        if self._has_meaningful_cp() and gsd > 0:
-            cp_only = self.stats["gcp_errors"]["cp_only"]
-            cp_avg_error = cp_only["average_error"]
-            cp_thresholds = (3.0 * gsd, 4.0 * gsd, 5.0 * gsd)
-            self._make_graded_row_lower(
-                self.locale.t("gcp_error"),
-                cp_avg_error,
-                self.locale.format_distance_label(cp_avg_error, precision=3),
-                cp_thresholds, col_sizes,
-            )
+            # CP error graded row
+            if self._has_meaningful_cp() and gsd > 0:
+                cp_only = self.stats["gcp_errors"]["cp_only"]
+                cp_avg_error = cp_only["average_error"]
+                cp_thresholds = (3.0 * gsd, 4.0 * gsd, 5.0 * gsd)
+                self._make_graded_row_lower(
+                    self.locale.t("gcp_error"),
+                    cp_avg_error,
+                    self.locale.format_distance_label(cp_avg_error, precision=3),
+                    cp_thresholds, col_sizes,
+                )
 
         self.pdf.set_xy(MARGIN, self.pdf.get_y() + TABLE_GAP)
 
@@ -857,26 +887,26 @@ class Report:
             self._make_table(["", self.locale.t("absolute"), self.locale.t("relative")], rows, False)
             self.pdf.set_xy(MARGIN, self.pdf.get_y() + TABLE_GAP)
 
-        rows = []
-        columns_names = [
-            self.locale.t("gps_bias"),
-            self.locale.t("scale"),
-            self.locale.t("translation"),
-            self.locale.t("rotation"),
-        ]
-        for camera, params in self.stats["camera_errors"].items():
-            bias = params["bias"]
-            s, t, R = bias["scale"], bias["translation"], bias["rotation"]
-            rows.append(
-                [
-                    camera,
-                    f"{s:.2f}",
-                    f"{t[0]:.2f}   {t[1]:.2f}   {t[2]:.2f}",
-                    f"{R[0]:.2f}   {R[1]:.2f}   {R[2]:.2f}",
-                ]
-            )
-        if rows:
-            self._make_table(columns_names, rows)
+        # rows = []
+        # columns_names = [
+        #     self.locale.t("gps_bias"),
+        #     self.locale.t("scale"),
+        #     self.locale.t("translation"),
+        #     self.locale.t("rotation"),
+        # ]
+        # for camera, params in self.stats["camera_errors"].items():
+        #     bias = params["bias"]
+        #     s, t, R = bias["scale"], bias["translation"], bias["rotation"]
+        #     rows.append(
+        #         [
+        #             camera,
+        #             f"{s:.2f}",
+        #             f"{t[0]:.2f}   {t[1]:.2f}   {t[2]:.2f}",
+        #             f"{R[0]:.2f}   {R[1]:.2f}   {R[2]:.2f}",
+        #         ]
+        #     )
+        # if rows:
+        #     self._make_table(columns_names, rows)
 
         self.pdf.set_xy(MARGIN, self.pdf.get_y() + TABLE_GAP)
 
@@ -1003,6 +1033,121 @@ class Report:
             self.pdf.set_xy(MARGIN, self.pdf.get_y() + CELL_HEIGHT)
 
         self.pdf.set_xy(MARGIN, self.pdf.get_y() + TABLE_GAP)
+
+    def _read_gcp_stats_file(self, filename):
+        file_path = os.path.join(self.output_path, "ground_control_points.json")
+
+        with self.io_handler.open_rt(file_path) as fin:
+            return io.json_load(fin)
+
+    def make_gcp_error_details(self) -> None:
+        gcp_stats_path = os.path.join(self.output_path, "ground_control_points.json")
+        if not self.io_handler.isfile(gcp_stats_path):
+            return
+
+        self._make_section("Ground Control Point Error")
+
+        gcp_stats = self._read_gcp_stats_file(gcp_stats_path)
+
+        rows = []
+        column_names = ["ID", "Error X (m)", "Error Y (m)", "Error Z (m)"]
+
+        for gcp in gcp_stats:
+            gcp_id = ''.join(c if ord(c) < 256 else '?' for c in gcp["id"])  # latin-1 only due to fpdf2 requirements
+            row = [gcp_id]
+            row.append(f"{gcp['error'][0]:.3f}")
+            row.append(f"{gcp['error'][1]:.3f}")
+            row.append(f"{gcp['error'][2]:.3f}")
+
+            rows.append(row)
+
+        self._make_table(column_names, rows)
+        self.pdf.set_xy(MARGIN, self.pdf.get_y() + MARGIN / 2)
+
+    def make_align_details(self) -> None:
+        self._make_section("Alignment Errors Details")
+
+        # Alignment
+        rows = []
+        columns_names = ["", "DSM (Coarse)", "ICP (Fine)", "RMS Error"]
+        for comp in ["x", "y", "z", "3d"]:
+            row = [comp.upper() + " Error (meters)"]
+            row.append(f"{self.stats['align']['coarse']['rmse_' + comp]:.3f}")
+            row.append(f"{self.stats['align']['fine']['rmse_' + comp]:.3f}")
+            row.append(f"{(self.stats['align']['coarse']['rmse_' + comp] + self.stats['align']['fine']['rmse_' + comp]):.3f}")
+            rows.append(row)
+
+        self._make_table(columns_names, rows)
+        self.pdf.set_xy(MARGIN, self.pdf.get_y() + MARGIN / 2)
+
+        dsm_feature_matches = os.path.join(self.output_path, "codem", "dsm_feature_matches.png")
+        if self.io_handler.isfile(dsm_feature_matches):
+            self._make_centered_image(dsm_feature_matches, 80)
+
+    def make_survey_data(self) -> None:
+        self._make_section("Survey Data")
+
+        self._make_centered_image(
+            os.path.join(self.output_path, "overlap.png"), 90
+        )
+        self._make_centered_image(
+            os.path.join(self.output_path, "overlap_diagram_legend.png"), 3
+        )
+
+        self.pdf.set_xy(MARGIN, self.pdf.get_y() + MARGIN / 2)
+
+    def _add_image_label(self, text: str) -> None:
+        self.pdf.set_font_size(FONT_SMALL)
+        self.pdf.text(self.pdf.get_x() + CONTENT_WIDTH / 2 - self.pdf.get_string_width(text) / 2, self.pdf.get_y() - 5, text)
+
+    def make_preview(self) -> bool:
+        ortho = os.path.join(self.output_path, "ortho.png")
+        dsm = os.path.join(self.output_path, "dsm.png")
+        dtm = os.path.join(self.output_path, "dtm.png")
+        count = 0
+
+        if self.io_handler.isfile(ortho) or self.io_handler.isfile(dsm):
+            self._make_section("Previews")
+
+            if self.io_handler.isfile(ortho):
+                self._make_centered_image(ortho, 110)
+                self._add_image_label("Orthophoto")
+                count += 1
+
+            if self.io_handler.isfile(dsm) and self.stats.get('dsm_statistics'):
+                self._make_centered_image(dsm, 110)
+                self._add_image_label("Digital Surface Model")
+
+                self._make_centered_image(
+                    os.path.join(self.output_path, "dsm_gradient.png"), 4
+                )
+                self.pdf.set_font_size(FONT_SMALL)
+                min_text = "{:,.2f}m".format(self.stats['dsm_statistics']['min'])
+                max_text = "{:,.2f}m".format(self.stats['dsm_statistics']['max'])
+                self.pdf.text(self.pdf.get_x() + 40, self.pdf.get_y() - 5, min_text)
+                self.pdf.text(self.pdf.get_x() + 40 + 110.5 - self.pdf.get_string_width(max_text), self.pdf.get_y() - 5, max_text)
+                count += 1
+
+            if self.io_handler.isfile(dtm) and self.stats.get('dtm_statistics'):
+                if count >= 2:
+                    self.add_page_break()
+
+                self._make_centered_image(dtm, 110)
+                self._add_image_label("Digital Terrain Model")
+
+                self._make_centered_image(
+                    os.path.join(self.output_path, "dsm_gradient.png"), 4
+                )
+                self.pdf.set_font_size(FONT_SMALL)
+                min_text = "{:,.2f}m".format(self.stats['dtm_statistics']['min'])
+                max_text = "{:,.2f}m".format(self.stats['dtm_statistics']['max'])
+                self.pdf.text(self.pdf.get_x() + 40, self.pdf.get_y() - 5, min_text)
+                self.pdf.text(self.pdf.get_x() + 40 + 110.5 - self.pdf.get_string_width(max_text), self.pdf.get_y() - 5, max_text)
+
+            self.pdf.set_xy(MARGIN, self.pdf.get_y() + MARGIN)
+
+            return True
+        return False
 
     def make_orientation_details(self) -> None:
         if "opk_errors" not in self.stats:
@@ -1287,7 +1432,7 @@ class Report:
 
         self.make_tracks_details()
         self.make_camera_models_details()
-        self.make_rig_cameras_details()
+        #self.make_rig_cameras_details()
         self.add_page_break()
 
         report_images = self.io_handler.ls(self.output_path)
@@ -1299,7 +1444,16 @@ class Report:
             self.add_page_break()
 
         self.make_overlap_summary()
-        self.make_gps_details()
-        self.make_gcp_details()
+        if "align" not in self.stats:
+            self.make_gps_details()
+            self.make_gcp_details()
+            self.make_gcp_error_details()
+        else:
+            self.make_align_details()
         self.make_orientation_details()
         self.make_processing_time_details()
+
+        if self.io_handler.isfile(os.path.join(self.output_path, "overlap.png")):
+            self.make_survey_data()
+
+        self.make_preview()

@@ -317,6 +317,7 @@
             var reconstruction_groups = [];
             var point_clouds = [];
             var camera_lines = [];
+            var camera_planes = [];
             var gps_lines = [];
             var imagePlanes = [];
             var imagePlaneCameras = [];
@@ -337,8 +338,10 @@
             };
 
             var options = {
-                cameraSize: 0.9,
-                pointSize: 0.7,
+                cameraSize: 0.07,
+                pointSize: 0.04,
+                // cameraSize: 0.9,
+                // pointSize: 0.7,
                 imagePlaneSize: 50,
                 showThumbnail: true,
                 showImagePlane: false,
@@ -667,6 +670,41 @@
                 return lines;
             }
 
+            function createPlane(id, shot){
+                var geometry = new THREE.PlaneGeometry( 2, 2 );
+                var plane = new THREE.Mesh( geometry, new THREE.MeshBasicMaterial( {color: reconstruction_color(id), opacity: 0.5, transparent: true, side: THREE.DoubleSide} ) );
+                var oc = opticalCenter(shot);
+                oc.setZ(shot["plane"]["depth"]);
+                var la = new THREE.Vector3().addVectors(oc, new THREE.Vector3(shot["plane"]["normal"][0], shot["plane"]["normal"][1], shot["plane"]["normal"][2]));
+                plane.position.copy(oc);
+                plane.lookAt(la);
+                return plane;
+            }
+
+            function initCameraPlanes(reconstruction) {
+                var planes = []
+                var i = 0;
+                for (var shot_id in reconstruction.shots) {
+                    if (reconstruction.shots.hasOwnProperty(shot_id)) {
+                        var shot = reconstruction.shots[shot_id];
+                        if (shot["plane"]){
+                            planes.push(createPlane(i++, shot));
+                        }
+                    }
+                }
+                // Main plane
+                if (reconstruction.plane){
+                    var geometry = new THREE.PlaneGeometry( 120, 120 );
+                    var plane = new THREE.Mesh( geometry, new THREE.MeshBasicMaterial( {color: reconstruction_color(99), opacity: 0.3, transparent: true, side: THREE.DoubleSide} ) );
+                    var center = new THREE.Vector3(0, 0, reconstruction["plane"]["depth"]);
+                    var la = new THREE.Vector3().addVectors(center, new THREE.Vector3(reconstruction["plane"]["normal"][0], reconstruction["plane"]["normal"][1], reconstruction["plane"]["normal"][2]));
+                    plane.position.copy(center);
+                    plane.lookAt(la);
+                    planes.push(plane);
+                }
+                return planes;
+            }
+
             function updateCameraLines() {
                 for (var i = 0; i < camera_lines.length; ++i) {
                     var linegeo = cameraLineGeo(camera_lines[i].reconstruction, camera_lines[i].shot_id);
@@ -873,7 +911,7 @@
                 return rotation;
             }
 
-            function reconstruction_color(id){
+            function reconstruction_color(id, opacity){
                 var s = 1
                 if(id !== 0){
                     s = Math.sin(id) * 10000;
@@ -881,6 +919,7 @@
                 }
                 var color = new THREE.Color();
                 color.setHex( s * 0xffffff );
+                if (opacity !== undefined) color.opacity = opacity;
                 return color;
             }
 
@@ -941,6 +980,13 @@
                     for (var i = 0; i < lines.length; ++i) {
                         group.add(lines[i]);
                         camera_lines.push(lines[i]);
+                    }
+
+                    // Planes
+                    var planes = initCameraPlanes(reconstruction);
+                    for (var i = 0; i < planes.length; ++i) {
+                        group.add(planes[i]);
+                        camera_planes.push(planes[i]);
                     }
 
                     // GPS positions

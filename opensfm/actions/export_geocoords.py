@@ -9,6 +9,7 @@ from numpy.typing import NDArray
 from opensfm import io, types
 from opensfm import geo
 from opensfm.dataset import DataSet, UndistortedDataSet
+from opensfm.reconstruction import bundle_shot_poses
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -21,6 +22,8 @@ def run_dataset(
     reconstruction: bool,
     dense: bool,
     output: str,
+    offset=(0, 0),
+    mode="affine"
 ) -> None:
     """Export reconstructions in geographic coordinates
 
@@ -31,6 +34,8 @@ def run_dataset(
         reconstruction : export reconstruction.json
         dense : export dense point cloud (depthmaps/merged.ply)
         output : path of the output file relative to the dataset
+        offset : offset to substract from the translation (optional)
+        mode : Method of georeferencing (optional) [affine|projected]
 
     """
 
@@ -42,6 +47,8 @@ def run_dataset(
 
     projection = geo.construct_proj_transformer(proj, inverse=True)
     t = geo.get_proj_transform_matrix(reference, projection)
+    t[0, 3] -= offset[0]
+    t[1, 3] -= offset[1]
 
     if transformation:
         output = output or "geocoords_transformation.txt"
@@ -56,8 +63,28 @@ def run_dataset(
 
     if reconstruction:
         reconstructions = data.load_reconstruction()
-        for r in reconstructions:
-            geo.transform_reconstruction_with_proj(r, projection)
+        if mode == "affine":
+            for r in reconstructions:
+                geo.transform_reconstruction_with_matrix(r, t)
+        elif mode == "projected":
+            camera_priors = data.load_camera_models()
+            rig_camera_priors = data.load_rig_cameras()
+            for r in reconstructions:
+                geo.transform_reconstruction_with_proj(r, projection)
+                if offset != (0, 0):
+                    for point in r.points.values():
+                        point.coordinates[0] -= offset[0]
+                        point.coordinates[1] -= offset[1]
+                    for rig_instance in r.rig_instances.values():
+                        o = rig_instance.pose.get_origin()
+                        rig_instance.pose.set_origin(
+                            [o[0] - offset[0], o[1] - offset[1], o[2]])
+                
+                logger.info("Bundle shot poses")
+                bundle_shot_poses(r, set(r.shots.keys()), camera_priors, rig_camera_priors, data.config)
+        else:
+            raise Exception(f"Invalid mode: {mode}")
+        
         output = output or "reconstruction.geocoords.json"
         data.save_reconstruction(reconstructions, output)
 

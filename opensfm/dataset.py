@@ -1,5 +1,6 @@
 # pyre-strict
 import gzip
+import hashlib
 import json
 import logging
 import os
@@ -418,7 +419,11 @@ class DataSet(DataSetBase):
     def save_tracks_manager(
         self, tracks_manager: pymap.TracksManager, filename: Optional[str] = None
     ) -> None:
-        with self.io_handler.open_wt(self._tracks_manager_file(filename)) as fw:
+        path = self._tracks_manager_file(filename)
+        if isinstance(self.io_handler, io.IoFilesystemDefault):
+            tracks_manager.write_to_file(path)
+            return
+        with self.io_handler.open_wt(path) as fw:
             fw.write(tracks_manager.as_string())
 
     def _reconstruction_file(self, filename: Optional[str]) -> str:
@@ -824,6 +829,10 @@ class UndistortedDataSet:
 
     def _undistorted_image_file(self, image: str) -> str:
         """Path of undistorted version of an image."""
+        p, ext = os.path.splitext(image)
+        if ' ' in image:
+            # NOTE: Downstream tools in ODM (ie OpenMVS) choke on spaces in image paths.
+            image = p.replace(' ', '') + hashlib.md5(image.encode('utf8')).hexdigest() + ext
         return os.path.join(self._undistorted_image_path(), image)
 
     def load_undistorted_image(self, image: str) -> NDArray:
@@ -1630,6 +1639,8 @@ class UndistortedDataSet:
 
     def load_undistorted_tracks_manager(self) -> pymap.TracksManager:
         filename = os.path.join(self.data_path, "tracks.csv")
+        if isinstance(self.io_handler, io.IoFilesystemDefault):
+            return pymap.TracksManager.instanciate_from_file(filename)
         with self.io_handler.open_rt(filename) as f:
             return pymap.TracksManager.instanciate_from_string(f.read())
 
@@ -1637,6 +1648,9 @@ class UndistortedDataSet:
         self, tracks_manager: pymap.TracksManager
     ) -> None:
         filename = os.path.join(self.data_path, "tracks.csv")
+        if isinstance(self.io_handler, io.IoFilesystemDefault):
+            tracks_manager.write_to_file(filename)
+            return
         with self.io_handler.open_wt(filename) as fw:
             fw.write(tracks_manager.as_string())
 

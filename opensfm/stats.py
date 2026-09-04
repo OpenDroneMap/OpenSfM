@@ -1,5 +1,6 @@
 # pyre-strict
 import datetime
+import json
 import logging
 import math
 import os
@@ -23,7 +24,7 @@ plt.set_loglevel('info')
 
 import numpy as np
 from numpy.typing import NDArray
-from opensfm import feature_loader, geo, geometry, report, io, multiview, pygeometry, pymap, types
+from opensfm import feature_loader, features, geo, geometry, report, io, multiview, pygeometry, pymap, types
 from opensfm.dataset import DataSet, DataSetBase
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -199,6 +200,7 @@ def gcp_errors(
 
     all_errors = []
     gcp_details: List[Dict[str, Any]] = []
+    gcp_stats = []
     for gcp in gcps:
         if not gcp.lla:
             continue
@@ -253,6 +255,37 @@ def gcp_errors(
             "sigma": sigma_xyz,
         })
 
+        # Export GCP stats for ODM (ground_control_points.json)
+        observations = []
+        for obs in gcp.observations:
+            if obs.shot_id not in rec.shots:
+                continue
+            shot = rec.shots[obs.shot_id]
+
+            reprojected = shot.project(gcp_enu)
+            annotated = obs.projection
+
+            r_pixel = features.denormalized_image_coordinates(np.array([[reprojected[0], reprojected[1]]]), shot.camera.width, shot.camera.height)[0]
+            r_pixel[0] /= shot.camera.width
+            r_pixel[1] /= shot.camera.height
+
+            a_pixel = features.denormalized_image_coordinates(np.array([[annotated[0], annotated[1]]]), shot.camera.width, shot.camera.height)[0]
+            a_pixel[0] /= shot.camera.width
+            a_pixel[1] /= shot.camera.height
+
+            observations.append({
+                'shot_id': obs.shot_id,
+                'annotated': list(a_pixel),
+                'reprojected': list(r_pixel)
+            })
+
+        gcp_stats.append({
+            'id': gcp.id,
+            'coordinates': list(gcp_enu),
+            'observations': observations,
+            'error': list(error)
+        })
+
     # Separate GCP-only and CP-only errors
     gcp_only_errors = [
         e for e, d in zip(all_errors, [dd for dd in gcp_details if dd["error"] is not None])
@@ -281,6 +314,10 @@ def gcp_errors(
     crs = data.load_gcp_coordinate_system()
     if crs:
         stats["coordinate_system"] = crs
+
+    with data.io_handler.open_wt(os.path.join(data.data_path, "stats", "ground_control_points.json")) as f:
+        f.write(json.dumps(gcp_stats, indent=4))
+
     return stats
 
 
@@ -746,6 +783,14 @@ def processing_statistics(
         ).strftime("%d/%m/%Y at %H:%M:%S")
     except FileNotFoundError:
         stats["date"] = "unknown"
+
+    start_ct, end_ct = start_end_capture_time(reconstructions)
+    if start_ct is not None and end_ct is not None:
+        stats["start_date"] = datetime.datetime.utcfromtimestamp(start_ct).strftime("%d/%m/%Y at %H:%M:%S")
+        stats["end_date"] = datetime.datetime.utcfromtimestamp(end_ct).strftime("%d/%m/%Y at %H:%M:%S")
+    else:
+        stats["start_date"] = "unknown"
+        stats["end_date"] = "unknown"
 
     default_max = 1e30
     min_x, min_y, max_x, max_y = default_max, default_max, 0, 0
@@ -1258,9 +1303,11 @@ def save_topview(
     )
     plt.yticks(
         [im_size_y, im_size_y / 2, 0],
-        [0, f"{int(size_y / 2):.0f}", f"{size_y:.0f} meters"],
+        [f"{size_y:.0f} meters", f"{int(size_y / 2):.0f}", 0],
         fontsize="small",
     )
+    plt.gca().invert_yaxis()
+
     with io_handler.open_wb(os.path.join(output_path, "topview.png")) as fwb:
         plt.savefig(
             fwb,
@@ -2017,3 +2064,22 @@ def decimate_points(
 
             for point_id in random_ids:
                 rec.remove_point(point_id)
+
+
+def start_end_capture_time(reconstructions):
+    end_ct = float('-inf')
+    start_ct = float('inf')
+
+    for reconstruction in reconstructions:
+        for shot in reconstruction.shots.values():
+            if shot.metadata.capture_time.has_value:
+                v = shot.metadata.capture_time.value
+                if v > end_ct:
+                    end_ct = v
+                if v < start_ct:
+                    start_ct = v
+
+    if end_ct != float('-inf') and start_ct != float('inf'):
+        return (start_ct, end_ct)
+    else:
+        return (None, None)

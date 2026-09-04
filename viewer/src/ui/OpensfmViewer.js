@@ -38,12 +38,12 @@ export class OpensfmViewer extends EventEmitter {
     const cvm = CameraVisualizationMode.Homogeneous;
     const opm = OriginalPositionMode.Hidden;
     const spatialConfiguration = {
-      cameraSize: 0.5,
+      cameraSize: 0.1,//0.5,
       cameraVisualizationMode: cvm,
       cellGridDepth: 3,
       cellsVisible: false,
       originalPositionMode: opm,
-      pointSize: 0.2,
+      pointSize: 0.01,//0.2,
       pointsVisible: true,
     };
 
@@ -86,7 +86,7 @@ export class OpensfmViewer extends EventEmitter {
     const thumbnailVisible = false;
 
     const controllerOptions = {
-      axesVisible: true,
+      axesVisible: false,
       cameraControlMode,
       commandsVisible,
       gridVisible: true,
@@ -145,7 +145,7 @@ export class OpensfmViewer extends EventEmitter {
       mode: cameraControlMode,
     });
     this._customRenderer = new CustomRenderer(this._viewer);
-    this._customRenderer.add(this._axesRenderer);
+    //this._customRenderer.add(this._axesRenderer);
     this._customRenderer.add(this._earthRenderer);
     this._viewer.addCustomRenderer(this._customRenderer);
   }

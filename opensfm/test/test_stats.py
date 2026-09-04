@@ -17,7 +17,7 @@ def test_processing_statistics_normal(
     processing_statistics = stats.processing_statistics(dataset, [reference])
 
     assert list(processing_statistics.keys()) == [
-        "steps_times", "date", "area"]
+        "steps_times", "date", "start_date", "end_date", "area"]
     assert processing_statistics["steps_times"] == {
         "Feature Extraction": -1,
         "Features Matching": -1,
@@ -42,7 +42,7 @@ def test_processing_statistics_null(
     processing_statistics = stats.processing_statistics(dataset, [null_scene])
 
     assert list(processing_statistics.keys()) == [
-        "steps_times", "date", "area"]
+        "steps_times", "date", "start_date", "end_date", "area"]
     assert processing_statistics["steps_times"] == {
         "Feature Extraction": -1,
         "Features Matching": -1,

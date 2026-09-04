@@ -66,6 +66,9 @@ def load_features_mask(
     if points is None or len(points) == 0:
         return np.array([], dtype=bool)
 
+    # ODM fork hack: we never mask features (they can add good keypoints)
+    return np.ones((points.shape[0],), dtype=bool)
+
     if mask_image is None:
         mask_image = _load_combined_mask(data, image)
     if mask_image is None:

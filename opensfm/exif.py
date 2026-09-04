@@ -1,8 +1,8 @@
 # pyre-strict
-
 import datetime
 import logging
 from codecs import decode, encode
+from bs4 import BeautifulSoup
 from typing import Any, BinaryIO, Callable, Dict, List, Optional, Tuple, Union
 
 import exifread
@@ -142,11 +142,18 @@ def unescape_string(s: str) -> str:
 
 
 def parse_xmp_string(xmp_str: str) -> Optional[Dict[str, Any]]:
-    for _ in range(2):
+    try:
+        return x2d.parse(xmp_str)
+    except Exception:
+        xmp_str = unescape_string(xmp_str)
         try:
             return x2d.parse(xmp_str)
         except Exception:
-            xmp_str = unescape_string(xmp_str)
+            xmp_str = str(BeautifulSoup(xmp_str, "xml"))
+            try:
+                return x2d.parse(xmp_str)
+            except Exception:
+                pass
     return None
 
 
@@ -176,6 +183,14 @@ def get_gpano_from_xmp(xmp: List[Dict[str, Any]]) -> Dict[str, Any]:
     for i in xmp:
         for k in i:
             if "GPano" in k:
+                return i
+    return {}
+
+
+def get_pix4d_from_xmp(xmp: List[Dict[str, Any]]) -> Dict[str, Any]:
+    for i in xmp:
+        for k in i:
+            if "@Camera:ModelType" in k:
                 return i
     return {}
 
@@ -254,8 +269,19 @@ class EXIF:
         return self._decode_make_model(model)
 
     def extract_projection_type(self) -> str:
+        projections = ["perspective", "fisheye", "brown", "dual", "equirectangular", "spherical"]
+
         gpano = get_gpano_from_xmp(self.xmp)
-        return gpano.get("GPano:ProjectionType", self.default_projection_type)
+        gpano_projection = gpano.get("GPano:ProjectionType", "").lower()
+        if gpano_projection in projections:
+            return gpano_projection
+
+        pix4d = get_pix4d_from_xmp(self.xmp)
+        camera_model = pix4d.get("@Camera:ModelType", "").lower()
+        if camera_model in projections:
+            return camera_model
+
+        return self.default_projection_type
 
     def extract_focal(self) -> Tuple[float, float]:
         # DJI CalibratedFocalLength is focal length in pixels — use it if available
@@ -696,6 +722,10 @@ class EXIF:
 
 
 def hard_coded_calibration(exif: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    # Disabled: ODM relies on EXIF/sensor-DB calibration, not on hard-coded
+    # per-camera values (ported from 360 branch, commit dbe22158)
+    return None
+
     focal = exif["focal_ratio"]
     fmm35 = int(round(focal * 36.0))
     make = exif["make"].strip().lower()

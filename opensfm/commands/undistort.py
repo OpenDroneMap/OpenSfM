@@ -18,7 +18,7 @@ class Command(command.CommandBase):
             args.reconstruction_index,
             args.tracks,
             args.output,
-            args.skip_images,
+            skip_images=args.skip_images,
         )
 
     def add_arguments_impl(self, parser: argparse.ArgumentParser) -> None:
