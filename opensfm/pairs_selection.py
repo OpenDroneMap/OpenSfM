@@ -82,6 +82,11 @@ def find_best_altitude(
     'directions' viewing directions expected to be homogenized with z=1.
 
     We sample it every SAMPLE_Z and regress a second polynomial from which we take its extrema.
+
+    When the problem is degenerate (e.g. all-nadir datasets, where the X/Y
+    bounding box does not depend on the altitude, or slightly divergent
+    viewing directions), there is no minimum to find and DEFAULT_Z is
+    returned, which reduces to plain GPS-distance pair selection.
     """
     directions_base = np.array([p for p in directions.values()])
     origin_base = np.array([p for p in origin.values()])
@@ -94,31 +99,40 @@ def find_best_altitude(
         ) ** 2
         samples.append((current_z, current_size, i))
 
+    # Parallel viewing directions (all-nadir) : size doesn't depend on altitude
+    sizes = [s[1] for s in samples]
+    if max(sizes) - min(sizes) <= 1e-6 * max(max(sizes), 1.0):
+        logger.info(
+            f"Viewing directions are parallel (e.g. nadir) : altitude cannot be estimated. Using default altitude of {DEFAULT_Z}"
+        )
+        return DEFAULT_Z
+
     # Find the minima manually
     min_z, min_size, index = min(samples, key=lambda t: t[1])
     logger.info(
         f"Minimum found at sampling altitude {min_z} with size {min_size}")
 
-    if index == 0 or index == len(samples) - 1:
+    if index == len(samples) - 1:
         logger.info(
             f"Altitude extrema is at the boundary of search space. Using default altitude of {DEFAULT_Z}"
         )
         return DEFAULT_Z
 
-    # Refine with polynomial fitting
+    # Refine with polynomial fitting. If the minimum is the first sample,
+    # the real one can be anywhere in [0, SAMPLE_Z], so fit the first ones.
     before = max(0, index - 1)
-    after = min(len(samples) - 1, index + 1)
+    after = before + 2
     coeffs = np.polyfit(
         [samples[i][0] for i in range(before, after + 1)],
         [samples[i][1] for i in range(before, after + 1)],
         2,
     )
-    real_minimum = -coeffs[1] / (2 * coeffs[0])
+    real_minimum = -coeffs[1] / (2 * coeffs[0]) if coeffs[0] > 0 else -1.0
     logger.info(f"Refined altitude extrema at {real_minimum}")
 
-    if real_minimum < 0:
+    if real_minimum <= 0 or real_minimum > samples[after][0]:
         logger.info(
-            f"Altitude is negative ({real_minimum}) : viewing directions are probably divergent. Using default altitude of {DEFAULT_Z}"
+            f"Altitude is negative or out of range ({real_minimum}) : viewing directions are probably divergent. Using default altitude of {DEFAULT_Z}"
         )
         real_minimum = DEFAULT_Z
     return real_minimum
@@ -160,14 +174,20 @@ def get_representative_points(
         origin[image], directions[image] = map_method[method_id](
             exif, reference)
 
-        relative_altitudes = [exif["relative_altitude"]
-                              for exif in exifs.values() if "relative_altitude" in exif]
+    # Relative altitude is w.r.t. take-off : only positive ones are usable
+    relative_altitudes = {
+        k: exifs[k]["relative_altitude"]
+        for k in origin
+        if exifs[k].get("relative_altitude", 0.0) > 0.0
+    }
     if had_orientation:
         if len(relative_altitudes) > 0:
-            average_relative_altitude = np.mean(relative_altitudes)
-            all_relative_altitudes = {k: exif["relative_altitude"]
-                                      if "relative_altitude" in exif else average_relative_altitude
-                                      for k, exif in exifs.items()}
+            median_relative_altitude = float(
+                np.median(list(relative_altitudes.values())))
+            all_relative_altitudes = {
+                k: relative_altitudes.get(k, median_relative_altitude)
+                for k in origin
+            }
             logger.info(
                 "Using EXIF relative_altitude for orientation based matching")
             directions_scaled = {

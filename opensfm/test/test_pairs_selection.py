@@ -180,7 +180,7 @@ def test_find_best_altitude_convergent() -> None:
         "1": np.array([1.0, 0.0, -1.0]),
     }
     altitude = pairs_selection.find_best_altitude(origins, directions)
-    assert np.allclose([altitude], [1.0], atol=1e-2)
+    assert np.allclose([altitude], [2.0], atol=1e-2)
 
 
 def test_find_best_altitude_divergent() -> None:
@@ -191,6 +191,53 @@ def test_find_best_altitude_divergent() -> None:
     }
     altitude = pairs_selection.find_best_altitude(origins, directions)
     assert np.allclose([altitude], pairs_selection.DEFAULT_Z, atol=1e-2)
+
+
+def test_find_best_altitude_convergent_below_first_sample() -> None:
+    # 10x10 grid with cameras all looking at the same point 10m below
+    origins, directions = {}, {}
+    for i in range(10):
+        for j in range(10):
+            x, y = 20.0 * (i - 4.5), 20.0 * (j - 4.5)
+            origins[f"{i}_{j}"] = np.array([x, y, 0.0])
+            directions[f"{i}_{j}"] = np.array([-x / 10.0, -y / 10.0, -1.0])
+    altitude = pairs_selection.find_best_altitude(origins, directions)
+    assert np.allclose([altitude], [10.0], atol=1e-2)
+
+
+def test_find_best_altitude_nadir() -> None:
+    # 10x10 nadir grid : altitude doesn't change the X/Y bounding box
+    origins, directions = {}, {}
+    for i in range(10):
+        for j in range(10):
+            origins[f"{i}_{j}"] = np.array([20.0 * i, 20.0 * j, 0.0])
+            directions[f"{i}_{j}"] = np.array([0.0, 0.0, -1.0])
+    altitude = pairs_selection.find_best_altitude(origins, directions)
+    assert np.isfinite(altitude)
+    assert np.allclose([altitude], pairs_selection.DEFAULT_Z, atol=1e-2)
+
+
+def test_get_representative_points_relative_altitude() -> None:
+    # 10x10 nadir grid flown at 80m above take-off, with one image missing
+    # its relative altitude and one with an invalid (negative) one
+    reference = geo.TopocentricConverter(0, 0, 0)
+    exifs = {}
+    for i in range(10):
+        for j in range(10):
+            exifs[f"{i}_{j}"] = {
+                "gps": {"latitude": 0.0002 * i, "longitude": 0.0002 * j},
+                "opk": {"omega": 0.0, "phi": 0.0, "kappa": 0.0},
+                "relative_altitude": 80.0,
+            }
+    del exifs["0_0"]["relative_altitude"]
+    exifs["0_1"]["relative_altitude"] = -5.0
+
+    images = sorted(exifs)
+    points = pairs_selection.get_representative_points(
+        images, exifs, reference, True
+    )
+    altitudes = np.array([points[im][2] for im in images])
+    assert np.allclose(altitudes, -80.0)
 
 
 # ── sorted_pair ──────────────────────────────────────────────────────
