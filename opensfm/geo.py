@@ -532,16 +532,31 @@ def get_proj_transform_matrix(
     return transformation
 
 
+def nearest_rotation(M: NDArray) -> NDArray:
+    """Closest proper rotation to the 3x3 matrix M (polar decomposition).
+
+    The local-to-projected transform is a rotation combined with the map's
+    grid scale (about 0.9996 horizontally for UTM, 1.0 vertically), so it is
+    not orthonormal. Poses must be given a true rotation: a non-orthonormal
+    matrix stored in a Pose does not survive the round trip through its
+    angle-axis form, and the camera centre moves away from the points.
+    """
+    U, _, Vt = np.linalg.svd(M)
+    if np.linalg.det(U @ Vt) < 0:
+        U[:, -1] *= -1
+    return U @ Vt
+
+
 def transform_reconstruction_with_matrix(
     reconstruction: "types.Reconstruction", transformation: NDArray
 ) -> None:
     """Apply a rigid transformation to a reconstruction in-place."""
     A, b = transformation[:3, :3], transformation[:3, 3]
-    A1 = np.linalg.inv(A)
+    Q1 = nearest_rotation(A).T
 
     for rig_instance in reconstruction.rig_instances.values():
         R = rig_instance.pose.get_rotation_matrix()
-        rig_instance.pose.set_rotation_matrix(np.dot(R, A1))
+        rig_instance.pose.set_rotation_matrix(np.dot(R, Q1))
         rig_instance.pose.set_origin(np.dot(A, rig_instance.pose.get_origin()) + b)
 
     for point in reconstruction.points.values():
@@ -568,9 +583,10 @@ def transform_reconstruction_with_proj(
         J = np.column_stack(
             ((px - p0) / eps, (py - p0) / eps, (pz - p0) / eps))
 
-        rig_instance.pose.set_origin(p0)
+        # Rotation first: set_origin derives the translation from it.
         rig_instance.pose.set_rotation_matrix(
-            rig_instance.pose.get_rotation_matrix() @ np.linalg.inv(J))
+            rig_instance.pose.get_rotation_matrix() @ nearest_rotation(J).T)
+        rig_instance.pose.set_origin(p0)
 
     for point in reconstruction.points.values():
         point.coordinates = transform_to_proj(
