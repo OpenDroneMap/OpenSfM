@@ -3,9 +3,10 @@ import os
 
 import numpy as np
 import pytest
+from numpy.typing import NDArray
 from osgeo import gdal
 
-from opensfm import geo, pygeo, pymap
+from opensfm import geo, io, pygeo, pygeometry, pymap, types
 
 
 def test_ecef_lla_consistency() -> None:
@@ -441,3 +442,90 @@ def test_dsm_georeferenced_heights_follow_curvature(tmp_path) -> None:
     # Warped heights span the exact altitude range (a single affine would be flat).
     assert abs(valid.min() - origin_alt) < 1.0
     assert abs(valid.max() - corner_alt) < 1.0
+
+
+# ── transform_reconstruction_* keep cameras consistent with points ──
+
+
+def _nadir_reconstruction(ref: geo.TopocentricConverter) -> types.Reconstruction:
+    """Nadir cameras 1 km from the origin at 350 m, looking at ground points."""
+    rec = types.Reconstruction()
+    rec.reference = ref
+    camera = pygeometry.Camera.create_perspective(0.8, 0.0, 0.0)
+    camera.id = "cam"
+    camera.width, camera.height = 4000, 3000
+    rec.add_camera(camera)
+    for i, (x, y, yaw) in enumerate(
+        [(1000, 0, 0.0), (1000, 60, 0.3), (0, 1000, -0.2), (-700, -700, 2.0)]
+    ):
+        # 180 deg about x (camera looks down), then a yaw about the vertical.
+        c, s = np.cos(yaw), np.sin(yaw)
+        R_cw = np.diag([1.0, -1.0, -1.0]) @ np.array(
+            [[c, s, 0.0], [-s, c, 0.0], [0.0, 0.0, 1.0]]
+        )
+        pose = pygeometry.Pose()
+        pose.set_rotation_matrix(R_cw)
+        pose.set_origin(np.array([x, y, 350.0]))
+        rec.create_shot(str(i), camera.id, pose)
+        for dx in (-80, 0, 80):
+            for dy in (-60, 0, 60):
+                rec.create_point(f"{i}_{dx}_{dy}", [x + dx, y + dy, 0.0])
+    return rec
+
+
+def _projections(rec: types.Reconstruction) -> NDArray:
+    """Pixel projections of the ground points below each shot."""
+    return np.array(
+        [
+            rec.shots[s].project(np.array(rec.points[p].coordinates)) * 4000
+            for s in sorted(rec.shots)
+            for p in sorted(rec.points)
+            if p.startswith(s + "_")
+        ]
+    )
+
+
+def _json_round_trip(rec: types.Reconstruction) -> types.Reconstruction:
+    return io.reconstruction_from_json(io.reconstruction_to_json(rec))
+
+
+def test_transform_reconstruction_with_matrix_keeps_projections() -> None:
+    """Converted cameras still see the converted points where they did before."""
+    proj_str = pymap.parse_gcp_projection_string("WGS84 UTM 31N")
+    assert proj_str is not None
+    ref = geo.TopocentricConverter(41.38946, 2.18378, 300.0)
+    rec = _nadir_reconstruction(ref)
+    before = _projections(rec)
+
+    t = geo.get_proj_transform_matrix(
+        ref, geo.construct_proj_transformer(proj_str, inverse=True)
+    )
+    t[:2, 3] -= np.round(t[:2, 3])  # offset removed, as ODM does
+    geo.transform_reconstruction_with_matrix(rec, t)
+    rec = _json_round_trip(rec)
+
+    # The only change left is the grid scale (horizontal only), < 0.5 px here.
+    assert np.abs(_projections(rec) - before).max() < 0.5  # pixels
+    for shot in rec.shots.values():
+        origin = _nadir_reconstruction(ref).shots[shot.id].pose.get_origin()
+        expected = t[:3, :3] @ origin + t[:3, 3]
+        assert np.linalg.norm(shot.pose.get_origin() - expected) < 1e-3  # metres
+
+
+def test_transform_reconstruction_with_proj_keeps_projections() -> None:
+    """Same check for the projected (non-linear) conversion."""
+    proj_str = pymap.parse_gcp_projection_string("WGS84 UTM 31N")
+    assert proj_str is not None
+    ref = geo.TopocentricConverter(41.38946, 2.18378, 300.0)
+    rec = _nadir_reconstruction(ref)
+    before = _projections(rec)
+
+    transformer = geo.construct_proj_transformer(proj_str, inverse=True)
+    geo.transform_reconstruction_with_proj(rec, transformer)
+    rec = _json_round_trip(rec)
+
+    assert np.abs(_projections(rec) - before).max() < 0.5  # pixels
+    for shot in rec.shots.values():
+        origin = _nadir_reconstruction(ref).shots[shot.id].pose.get_origin()
+        expected = geo.transform_to_proj(origin, ref, transformer)
+        assert np.linalg.norm(shot.pose.get_origin() - expected) < 1e-3  # metres
