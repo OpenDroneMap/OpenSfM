@@ -1454,7 +1454,6 @@ def imwrite_rasterio(path: str, image: NDArray) -> None:
         'width': image.shape[1],
         'height': image.shape[0],
         'count': image.shape[2],
-        'blockxsize': 512,
         'blockysize': 512,
         'compress': 'lzw',
         'predictor': 3 if image.dtype == np.float32 else 2,

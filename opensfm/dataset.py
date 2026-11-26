@@ -355,11 +355,19 @@ class DataSet(DataSetBase):
                 np.core.multiarray if hasattr(
                     np, "core") else np._core.multiarray
             )
+            _numeric = (
+                np.core.numeric if hasattr(
+                    np, "core") else np._core.numeric
+            )
             modules_map = {
                 "numpy.core.multiarray._reconstruct": _multiarray,
                 "numpy.core.multiarray.scalar": _multiarray,
                 "numpy._core.multiarray._reconstruct": _multiarray,
                 "numpy._core.multiarray.scalar": _multiarray,
+                # Pickle protocol 5, the default from Python 3.14,
+                # reduces contiguous arrays through _frombuffer.
+                "numpy.core.numeric._frombuffer": _numeric,
+                "numpy._core.numeric._frombuffer": _numeric,
                 "numpy.ndarray": np,
                 "numpy.dtype": np,
             }
