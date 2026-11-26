@@ -19,7 +19,7 @@ from opensfm import pygeometry
 from opensfm.actions import export_geocoords
 
 
-import matplotlib.cm as cm
+import matplotlib
 from scipy.spatial import Delaunay, KDTree
 
 try:
@@ -74,8 +74,8 @@ COVERAGE_MIN_COUNT = 0.0
 COVERAGE_MAX_COUNT = 20.0
 
 # Colormaps
-MATCHGRAPH_CMAP = cm.get_cmap("plasma")
-COVERAGE_CMAP = cm.get_cmap("viridis")
+MATCHGRAPH_CMAP = matplotlib.colormaps["plasma"]
+COVERAGE_CMAP = matplotlib.colormaps["viridis"]
 
 
 # --- Abstractions ---
